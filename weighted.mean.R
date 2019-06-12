@@ -1,0 +1,5 @@
+datos=subset(Tagging.mySpecies,Species==SPECIES[2])
+plot(datos$DaysAtLarge,datos$dist.trav_m/1000)
+test=subset(datos,DaysAtLarge>=3*365)
+mean(test$dist.trav_m/1000,na.rm=T)
+weighted.mean(test$dist.trav_m/1000,na.rm=T,w=test$DaysAtLarge/sum(test$DaysAtLarge))
