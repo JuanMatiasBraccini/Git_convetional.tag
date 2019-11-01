@@ -16,7 +16,7 @@ ONLINE="YES"  #Switch to YES to update Changes done by dani
 
 setwd("C:/Matias/Analyses/Conventional tagging")  #function for settting the working directory
 
-source("C:/Matias/Analyses/SOURCE_SCRIPTS/Plot.Map.R")   #function for sourcing other .R scripts
+source("C:/Matias/Analyses/SOURCE_SCRIPTS/Git_other/Plot.Map.R")   #function for sourcing other .R scripts
 
 library(RODBC)  			#library for importing excel data
 library(gridBase)			#for inset map
@@ -51,7 +51,7 @@ if(ONLINE=="NO")
   Tagging=read.csv("C:/Matias/Data/Tagging/Conventional_tagging/Tagging_data.csv") 
   Species.Codes=read.csv("C:/Matias/Data/Species.code.csv")    
 }
-if(ONLINE=="YES") source("C:/Matias/Analyses/SOURCE_SCRIPTS/Source_conventional_data.R")
+if(ONLINE=="YES") source("C:/Matias/Analyses/SOURCE_SCRIPTS/Git_other/Source_conventional_data.R")
 
 
     #1.3. bathymetry data
@@ -194,13 +194,13 @@ names(All.Species)=as.character(Species.Codes$COMMON_NAME)
 
 
 #fishing effort         #MISSING: replace by monthly effort by cell!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-Tagging$Effort=10
+#Tagging$Effort=10
 
 #reporting rate         #MISSING: replace by monthly effort by cell!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-Tagging$Reporting=1   #scale: 0-1 (with 1 = 100% reporting)
+#Tagging$Reporting=1   #scale: 0-1 (with 1 = 100% reporting)
 
 #record weight
-Tagging$WEIGHT=(1/Tagging$Effort)*(Tagging$Reporting)
+#Tagging$WEIGHT=(1/Tagging$Effort)*(Tagging$Reporting)
 
 
 #Keep only relevant species
@@ -235,7 +235,7 @@ Tagging$CAP_FL=with(Tagging,
           CAP_FL)))))
 
 #export data for mark recapture analysis
-write.csv(subset(Tagging,Species%in%SPECIES),"C:/Matias/Analyses/Mark_recapture_analysis/Tagging.data.csv",row.names=F)
+write.csv(Tagging,"C:/Matias/Analyses/Data_outs/Tagging_conventional.data.csv",row.names=F)
 
 #Convert all factors to character
 library(dplyr)
@@ -577,8 +577,8 @@ add="YES"
 Map2.fn("WH",BKS=c(0,90,120,200),"Whiskery shark")
 fn.lg(c("<90","90-120",">120"))
 
-mtext("Latitude (ºS)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
-mtext("Longitude (ºE)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
+mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
+mtext("Longitude (?E)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
 
 fn.inset(WHERE=c(.2,.475,.75,.99))
 dev.off()
@@ -620,8 +620,8 @@ if(add.Map.simple=="YES")
     }
     
   }
-  mtext("Latitude (ºS)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.5)
-  mtext("Longitude (ºE)",side=1,outer=T,line=1.25,font=1,las=0,cex=1.5)
+  mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.5)
+  mtext("Longitude (?E)",side=1,outer=T,line=1.25,font=1,las=0,cex=1.5)
   
   #Add inset
   XE=0.6;ColsS="black";Y1=108
@@ -686,8 +686,8 @@ add="YES"
 Map2.fn("LG",BKS=c(0,90,120,200),"Spinner shark")
 fn.lg(c("<90","90-120",">120"))
 
-mtext("Latitude (ºS)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
-mtext("Longitude (ºE)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
+mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
+mtext("Longitude (?E)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
 
 fn.inset(WHERE=c(.2,.475,.75,.99))
 dev.off()
@@ -768,8 +768,8 @@ if(do.Fig.A1=="YES")
        labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.35) 
   
   
-  mtext("Latitude (ºS)",side=2,outer=T,line=-1,font=1,las=0,cex=2)
-  mtext("Longitude (ºE)",side=1,outer=T,line=1.75,font=1,las=0,cex=2)
+  mtext("Latitude (?S)",side=2,outer=T,line=-1,font=1,las=0,cex=2)
+  mtext("Longitude (?E)",side=1,outer=T,line=1.75,font=1,las=0,cex=2)
   dev.off()
   
   
@@ -3312,12 +3312,12 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 #   Arrows(SPECIES[i],"Points",Species.names[i])
 # # Arrows(SPECIES[i],"Arrows",Species.names[i])
 # }
-# mtext("Latitude (ºS)",side=2,outer=T,line=-.1,font=1,las=0,cex=1.5)
-# mtext("Longitude (ºE)",side=1,outer=T,line=-.1,font=1,las=0,cex=1.5)
+# mtext("Latitude (?S)",side=2,outer=T,line=-.1,font=1,las=0,cex=1.5)
+# mtext("Longitude (?E)",side=1,outer=T,line=-.1,font=1,las=0,cex=1.5)
 # # dev.off()
 # 
 # #ACA: problem with WAcoast in function plotmap!!!
-# #######
+
 # #Figure 1. Map of fishing zones
 # 
 # #define coordinates of plots
@@ -3370,8 +3370,8 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 # text(122,-33.66,("Esperance"),col="black", cex=1.1)
 # points(121.9,-33.86,pch=19)
 # 
-# mtext("Latitude (ºS)",side=2,line=1.75,las=3,cex=1.3)
-# mtext("Longitude (ºE)",side=1,line=1.75,cex=1.3)
+# mtext("Latitude (?S)",side=2,line=1.75,las=3,cex=1.3)
+# mtext("Longitude (?E)",side=1,line=1.75,cex=1.3)
 # 
 # 
 # 
@@ -3581,7 +3581,7 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 # WestOz <- function()
 # {
 #   par(mar=c(0.02,0.01,0.02,0.03),mgp=c(2.5, 0.75, 0))
-#   plotMap(worldLLhigh, xlim=WOz.long, ylim=WOz.lat,col="light grey", axes=F, xlab="Longitude (ºE)", ylab="Latitude (ºS)",
+#   plotMap(worldLLhigh, xlim=WOz.long, ylim=WOz.lat,col="light grey", axes=F, xlab="Longitude (?E)", ylab="Latitude (?S)",
 #           cex.lab=1.5)
 #   text(118,-26,("Western"),col="black", cex=1.75)
 #   text(118,-27,("Australia"),col="black", cex=1.75)   
@@ -3743,8 +3743,8 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 #   }
 #   range.long[1]=112
 #   par(oma=c(0.1,0.1,0.1,0.1),mar=c(0.2,0.2,0.2,0.2),mgp=c(2.5, 1.1, 0))
-#   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="light grey", axes=F, xlab="Longitude (ºE)",
-#           ylab="Latitude (ºS)",cex.lab=1.5)
+#   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="light grey", axes=F, xlab="Longitude (?E)",
+#           ylab="Latitude (?S)",cex.lab=1.5)
 #   
 #   #add density
 #   n.grids=N.GRIDS
@@ -3758,8 +3758,8 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 #   image(Density,xlab="",ylab="",main = "",ylim=range.lat, xlim=range.long,zlim = c(0, max(Density$z)),
 #         col =col.image,breaks=ImageBreaks,add=T)
 #   par(new=T)    										#to keep all graphs
-#   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="light grey", axes=F, xlab="Longitude (ºE)",
-#           ylab="Latitude (ºS)",cex.lab=1.5)
+#   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="light grey", axes=F, xlab="Longitude (?E)",
+#           ylab="Latitude (?S)",cex.lab=1.5)
 #   axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = seq(range.long[1],range.long[2],2),
 #        tck=-0.035,las=1,cex.axis=1.2)
 #   axis(side = 1, at = seq(range.long[1],range.long[2],1), labels = F,tck=-0.02) 
