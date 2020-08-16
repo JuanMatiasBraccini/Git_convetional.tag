@@ -1179,15 +1179,21 @@ for(i in 1:length(Store.group))
 }
 
   #export
-setwd("C:/Matias/Data/Tagging/Pop dyn model/Conventional")
+
   #individual based model
+setwd("C:/Matias/Analyses/Data_outs")
 for(i in 1:length(Pop.din.sp))
 {
   a=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(DaysAtLarge) & !is.na(Rec.zone),
            select=c(Tag.no,DaysAtLarge,Rel.zone,Rec.zone))
-  write.csv(a,paste(Pop.din.sp[i],"Ind.based.mod","Conv.Tag.csv",sep="_"),row.names=F)
+  NmS=ifelse(Pop.din.sp[i]=="BW",'Dusky shark',
+      ifelse(Pop.din.sp[i]=='WH','Whiskery shark',
+      ifelse(Pop.din.sp[i]=='GM','Gummy shark',
+      ifelse(Pop.din.sp[i]=='TK','Sandbar shark',NA))))
+  write.csv(a,paste(getwd(),'/',NmS,'/',NmS,"_Con_tag_Ind.based.mod.csv",sep=""),row.names=F)
   
   #export data for mapping
+  setwd("C:/Matias/Data/Tagging/Pop dyn model/Conventional")
   if(Pop.din.sp[i]%in% c("GM","WH"))
   {
     HnDDl="C:/Matias/Analyses/Movement rate estimation/Joint.estim_ind.base.mod/Show Gummy and whiskery outputs/"
@@ -1247,7 +1253,11 @@ for(i in 1:length(Store.group.size))
 for(i in 1:length(Store.group.size))
 {
   a=Store.group.size[[i]]
-  for(p in 1:length(a)) write.csv(a[[p]],paste(names(Store.group)[i],"_",names(a)[p],"_","Conv.Tag_size.csv",sep=""),row.names=F)
+  NmS=ifelse(names(Store.group)[i]=="BW",'Dusky shark',
+      ifelse(names(Store.group)[i]=='WH','Whiskery shark',
+      ifelse(names(Store.group)[i]=='GM','Gummy shark',
+      ifelse(names(Store.group)[i]=='TK','Sandbar shark',NA))))
+   for(p in 1:length(a)) write.csv(a[[p]],paste('C:/Matias/Analyses/Data_outs/',NmS,'/',NmS,"_Con_tag_",names(a)[p],"_","Conv.Tag_size.csv",sep=""),row.names=F)
 }
 
 
