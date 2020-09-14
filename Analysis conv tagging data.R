@@ -4,6 +4,9 @@
 #       Speed values are low because sharks are not moving in straight line so this is minimum speed
 
 
+# Shark database: Boat.bio is the table being updated, not 'Tag data' so cross check!!!!
+
+
 rm(list=ls(all=TRUE))   #clear log
 
 
@@ -1178,7 +1181,8 @@ for(i in 1:length(Store.group))
     to.m=Gr[[i]][6],BySex="NO",MX.AGE=Mx.age[[i]])
 }
 
-  #export
+
+# Export ------------------------------------------------------------------
 
   #individual based model
 setwd("C:/Matias/Analyses/Data_outs")
@@ -1205,17 +1209,13 @@ for(i in 1:length(Pop.din.sp))
   
 }
 
-
-
-#Other stuff
+  #Other stuff
 for(i in 1:length(Store.group))
 {
   a=Store.group[[i]]
   for(p in 1:length(a)) write.csv(a[[p]],paste(names(Store.group)[i],"_",names(a)[p],"_","Conv.Tag.csv",sep=""),row.names=F)
 }
-
-
-#b) Tag groups by size class
+  #b) Tag groups by size class
 #note: two size groups, one from smallest tagged to size at maturity, the other for >size at maturity
 for(i in 1:length(Store.group.size))
 {
