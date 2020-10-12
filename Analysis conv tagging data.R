@@ -3,10 +3,6 @@
 #notes: this script maps the location of sharks tagged with conventional tags and performs a range of different analysis
 #       Speed values are low because sharks are not moving in straight line so this is minimum speed
 
-
-# Shark database: Boat.bio is the table being updated, not 'Tag data' so cross check!!!!
-
-
 rm(list=ls(all=TRUE))   #clear log
 
 
