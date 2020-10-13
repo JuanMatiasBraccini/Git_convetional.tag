@@ -31,7 +31,8 @@ library(climatol)   #for rose diagram
 library(bootstrap)  #for jackknife
 library(lubridate)
 library(modeest)    #mode
-
+library(dplyr)
+library(sjPlot)  #word tables
 
 #memory.limit(3900)   #set memory limit to maximum size
 
@@ -175,7 +176,7 @@ size.birth=c(42.5,75,25,25)   #size at birth of TK, BW, GM, WH  (FL, cm)
 # SouthWest$Lat=-(SouthWest$"Actual Deg South"+(SouthWest$"Actual Min South"/60))
 
 #Use only sharks tagged in WA
-Tagging=subset(Tagging,Long.rels<=129)
+Tagging=subset(Tagging,Long.rels<=129 | is.na(Long.rels))
 
 
 #3. CREATE VARIABLES
@@ -236,11 +237,10 @@ Tagging$CAP_FL=with(Tagging,
 #export data for mark recapture analysis
 write.csv(Tagging,"C:/Matias/Analyses/Data_outs/Tagging_conventional.data.csv",row.names=F)
 
-#Convert all factors to character
-library(dplyr)
-Tagging %>% mutate_if(is.factor, as.character) -> Tagging
+#Convert all factors to character 
+Tagging %>% mutate(across(where(is.factor), as.character)) -> Tagging
 
-#Table 1. Summary of numbers, size and sex ratios for all shark and ray species
+#Table 1. Summary of numbers, size and sex ratios for all shark and ray species  
 Tab1.fun=function(Spec)
 {
   dat=subset(Tagging,Species==Spec)
@@ -304,9 +304,10 @@ Tab1.fun=function(Spec)
   
 }
 
+TL.species=c('ZE','PC','FR','TN','PZ','PM','SR')     
 Tabl1.list=vector('list',length(Vec.all.species))
 names(Tabl1.list)=Vec.all.species
-for (i in 1:length(Vec.all.species)) Tabl1.list[[i]]=Tab1.fun(Vec.all.species[i])
+for (i in 1:length(Vec.all.species)) Tabl1.list[[i]]=Tab1.fun(Spec=Vec.all.species[i])
 
 Tabl1.matrix=matrix(nrow=length(Vec.all.species),ncol=length(Tabl1.list[[1]]))
 
@@ -323,23 +324,78 @@ Tabl1.matrix=Tabl1.matrix[order(-Tabl1.matrix$N.rel),]
 setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
 write.csv(Tabl1.matrix,"Paper/Table1.csv",row.names=F)
 
-#Export data for Sarah Jakobs analysis
-Sarah.J=subset(Tagging,Species=="GN")
-Sarah.J= Sarah.J %>% select (-c(Areas, Areas.rec,Taxa,CAES_Code,Effort,Reporting,Valid.Rec))
-write.csv(Sarah.J,"C:/Matias/Students/Sarah Jakobs/Data/Conv_tag.csv",row.names=F)
+#word table
+Tabl1.doc=Tabl1.matrix %>%
+          mutate(across(where(is.factor), as.character),
+                 N.rel=as.numeric(N.rel),
+                 Rel.M=as.numeric(Rel.M),
+                 Rel.F=as.numeric(Rel.F),
+                 N.rec=as.numeric(N.rec),
+                 Rec.M=as.numeric(Rec.M),
+                 Rec.F=as.numeric(Rec.F),
+                 FL.rel.min=as.numeric(FL.rel.min),
+                 FL.rel.max=as.numeric(FL.rel.max),
+                 FL.rec.min=as.numeric(FL.rec.min),
+                 FL.rec.max=as.numeric(FL.rec.max))
 
+Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
+                         dplyr::select(Species,SCIENTIFIC_NAME),
+                       by='Species')%>%
+              mutate(SP=paste(COMMON_NAME," (",SCIENTIFIC_NAME,")",sep=''),
+                     Rel.yr=paste(Yrs.rel.min,Yrs.rel.max,sep='-'),
+                     Rec.yr=paste(Yrs.rec.min,Yrs.rec.max,sep='-'),
+                     N.rel.u=N.rel-Rel.M-Rel.F,
+                     N.rec.u=N.rec-Rec.M-Rec.F,
+                     Rel.fl=paste(round(FL.rel.min),round(FL.rel.max),sep='-'),
+                     Rec.fl=paste(round(FL.rec.min),round(FL.rec.max),sep='-'),
+                     SP=ifelse(TL.measured=="TL",paste(SP,'*',sep=''),SP))%>%
+              dplyr::select(SP,Rel.yr,Rec.yr,Rel.M,Rel.F,N.rel.u,
+                            Rec.M,Rec.F,N.rec.u,Rec.ratio,Rel.fl,Rec.fl)%>%
+              rename(Species=SP,
+                     Release.year=Rel.yr,
+                     Recapture.year=Rec.yr,
+                     Release.numbers.Male=Rel.M,
+                     Release.numbers.Female=Rel.F,
+                     Release.numbers.Unknown=N.rel.u,
+                     Recapture.numbers.Male=Rec.M,
+                     Recapture.numbers.Female=Rec.F,
+                     Recapture.numbers.Unknown=N.rec.u,
+                     Recapture.ratio=Rec.ratio)%>%
+            replace(is.na(.),'')%>%
+            mutate(Recapture.year=ifelse(Recapture.year=='NA-NA','',Recapture.year),
+                   Rel.fl=ifelse(Rel.fl=='NA-NA','',Rel.fl),
+                   Rec.fl=ifelse(Rec.fl=='NA-NA','',Rec.fl))%>%
+            rename('Size.range(cm).Release'=Rel.fl,
+                   'Size.range(cm).Recapture'=Rec.fl)
+tab_df(Tabl1.doc,file="Paper/Tabl1.doc")
+ 
+ 
+#Export data for Sarah Jakobs analysis
+do.Sarah=FALSE
+if(do.Sarah)
+{
+  Sarah.J=subset(Tagging,Species=="GN")
+  Sarah.J= Sarah.J %>% select (-c(Areas, Areas.rec,Taxa,CAES_Code,Effort,Reporting,Valid.Rec))
+  write.csv(Sarah.J,"C:/Matias/Students/Sarah Jakobs/Data/Conv_tag.csv",row.names=F)
+}
 
 
 #Export data for Colin's mpa analysis
-dummy=subset(Tagging,Recaptured=="Yes")
-dummy=table(dummy$Species)
-dummy=dummy[dummy>=10]
-Colin.D=subset(Tagging,Species%in%names(dummy) & Recaptured=="Yes",
-      select=c(Tag.no,Species,SCIENTIFIC_NAME,Sex,Rel_FL,
-               Lat.rels,Long.rels,Lat.rec,Long.rec,
-               Day.rel,Mn.rel,Yr.rel,Day.rec,Mn.rec,Yr.rec))
-names(Colin.D)[match("Tag.no",names(Colin.D))]="TagID"
-write.csv(Colin.D,"C:/Matias/Data/Tagging/Conventional_tagging/data_for_Colin/Colin_conv_tag.csv",row.names=F)
+do.Colin=FALSE
+if(do.Colin)
+{
+  dummy=subset(Tagging,Recaptured=="Yes")
+  dummy=table(dummy$Species)
+  dummy=dummy[dummy>=10]
+  Colin.D=subset(Tagging,Species%in%names(dummy) & Recaptured=="Yes",
+                 select=c(Tag.no,Species,SCIENTIFIC_NAME,Sex,Rel_FL,
+                          Lat.rels,Long.rels,Lat.rec,Long.rec,
+                          Day.rel,Mn.rel,Yr.rel,Day.rec,Mn.rec,Yr.rec))
+  names(Colin.D)[match("Tag.no",names(Colin.D))]="TagID"
+  write.csv(Colin.D,"C:/Matias/Data/Tagging/Conventional_tagging/data_for_Colin/Colin_conv_tag.csv",row.names=F)
+  
+}
+
 
 #Chi-square test of sex ratios
 X2.fun=function(Spec)
@@ -538,11 +594,11 @@ Map2.fn=function(Spec,BKS,y)
   points(dat$Long.rels,dat$Lat.rels,pch=21,bg=dat$col,cex=1.2,col=1)
   fn.axis()
   axis(side = 2, at = seq(range.lat[1],range.lat[2],4), 
-       labels = -seq(range.lat[1],range.lat[2],4),tck=-0.035,las=1,cex.axis=1.2)
+       labels = -seq(range.lat[1],range.lat[2],4),tck=-0.035,las=1,cex.axis=1.1)
   if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
                         labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.2) 
-  legend(106.5,-10,y,bty='n',cex=1.17,xjust=0) 
-  if(TIT=="YES") mtext("Released",3,line=0,cex=1.25)
+  legend(107,-10,y,bty='n',cex=1.05,xjust=0) 
+  if(TIT=="YES") mtext("Released",3,line=0,cex=1.2)
   
   
   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
@@ -550,8 +606,8 @@ Map2.fn=function(Spec,BKS,y)
   points(dat$Long.rec,dat$Lat.rec,pch=21,col=1,cex=1.2,bg=dat$col)
   fn.axis()   
   if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
-                        labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.2) 
-  if(TIT=="YES") mtext("Recaptured",3,line=0,cex=1.25)
+                        labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.1) 
+  if(TIT=="YES") mtext("Recaptured",3,line=0,cex=1.2)
 }
 fn.lg=function(x)
 {
@@ -576,8 +632,8 @@ add="YES"
 Map2.fn("WH",BKS=c(0,90,120,200),"Whiskery shark")
 fn.lg(c("<90","90-120",">120"))
 
-mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
-mtext("Longitude (?E)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
+mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
+mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
 
 fn.inset(WHERE=c(.2,.475,.75,.99))
 dev.off()
@@ -662,7 +718,7 @@ if(add.Map.simple=="YES")
   
 }
 
-
+#Deje ACA, finish updating
 #Release and recaptures for other species
 Tabl1.matrix$N.rec=as.numeric(as.character(Tabl1.matrix$N.rec))
 Others.rep.map=subset(Tabl1.matrix,N.rec>=5 & !Species%in%c("TK", "BW","GM", "WH"))$Species
