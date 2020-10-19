@@ -33,6 +33,12 @@ library(lubridate)
 library(modeest)    #mode
 library(dplyr)
 library(sjPlot)  #word tables
+library(tidyverse)
+library(ggplot2)
+library(NISTunits)
+library(fields)
+library(ggridges)
+library(mgcv)
 
 #memory.limit(3900)   #set memory limit to maximum size
 
@@ -67,113 +73,10 @@ Bathymetry=rbind(Bathymetry_120,Bathymetry_138)
 ###### PARAMETERS SECTION ############
 size.mat=c(130,245,100,115)   #size at maturity of TK, BW, GM, WH  (FL, cm)    
 size.birth=c(42.5,75,25,25)   #size at birth of TK, BW, GM, WH  (FL, cm)
+names(size.mat)=names(size.birth)=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")
 
 
-
-###### PROCEDURE SECTION ############
-
-#1. COMPARE LATEST ACCESS DUMP WITH TAGGING
-
-#Tab.All.releases.latest.Access=table(as.character(dat.capture$SPECIES))
-# Tab.All.releases=table(as.character(Tagging$Species))
-# if(!sum(Tab.All.releases.latest.Access)==sum(Tab.All.releases))print("CHECK OUT DATA")
-# 
-# 
-# Tab.All.rec.latest.Access=table(as.character(dat.rec$SPECIES))
-# Dummy=subset(Tagging,!is.na(Lat.rec))
-# Tab.All.rec=table(as.character(Dummy$Species))
-# if(!sum(Tab.All.rec.latest.Access)==sum(Tab.All.rec))print("CHECK OUT DATA")
-
-
-  #Plot data by size classes (50 cm bins)
-# fun.plot.sp=function(whatDat,SPEC,MAT)
-# {
-#   ab.fn=function(){  abline(h=-33,lwd=2);segments(112,-26.5,114,-26.5,lwd=2)
-#                      segments(116.5,-36,116.5,-33,lwd=2);segments(114,0,114,-22,lwd=2)}
-#   if(whatDat=="Tagging")
-#   {
-#     dum=subset(Tagging,Species==SPEC)
-#     HIST=hist(dum$Rel_FL,breaks=seq(0,300,10),plot=F)
-#     
-#     Step=50
-#     dum$Bin=floor(dum$Rel_FL/Step)*Step
-#     Unico=sort(unique(dum$Bin))
-#     dum$Bin.col=factor(dum$Bin,labels=1:length(Unico))
-#     legnd=paste(as.numeric(levels(factor(dum$Bin))),"-",as.numeric(levels(factor(dum$Bin)))+Step,sep="")
-#     
-#     dum$MAT=ifelse(dum$Rel_FL>=MAT,'red',"blue")
-#     par(mfcol=c(1,1))
-#     plot(HIST,main=paste(SPEC,"release"))
-#     
-#     par(mfcol=c(2,1))
-#      plot(dum$Long.rels,dum$Lat.rels,main=paste(SPEC,"releases"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
-#     ab.fn()
-#     plot(dum$Long.rec,dum$Lat.rec,main=paste(SPEC,"recaptures"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
-#     legend("topleft",legnd,bty='n',pch=19,col=levels(dum$Bin.col),cex=0.8)
-#     ab.fn()
-#   }
-# 
-#   
-#   if(whatDat=="LatestAcces")
-#   {
-#     dum=subset(dat.capture,SPECIES==SPEC)
-#     HIST=hist(dum$FL,breaks=seq(0,300,10),plot=F)
-#     
-#     Step=50
-#     dum$Bin=floor(dum$FL/Step)*Step
-#     Unico=sort(unique(dum$Bin))
-#     dum$Bin.col=factor(dum$Bin,labels=1:length(Unico))
-#     legnd=paste(as.numeric(levels(factor(dum$Bin))),"-",as.numeric(levels(factor(dum$Bin)))+Step,sep="")
-#     
-#     dum$MAT=ifelse(dum$FL>=MAT,'red',"blue")
-#     par(mfcol=c(1,1))
-#     plot(HIST,main=paste(SPEC,"release"))
-#     
-#     par(mfcol=c(2,1))
-#     plot(dum$RELLNGDECDEG,-dum$RELLATDECDEG,main=paste(SPEC,"releases"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
-#     ab.fn()
-#     plot(dum$RECLNGDECDEG,-dum$RECLATDECDEG,main=paste(SPEC,"recaptures"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
-#     legend("topleft",legnd,bty='n',pch=19,col=levels(dum$Bin.col),cex=0.8)
-#     ab.fn()
-#   }
-# 
-# }
-# 
-# 
-# fun.plot.sp("Tagging","TK",size.mat[1])
-# fun.plot.sp("LatestAcces","TK",size.mat[1])
-# 
-# fun.plot.sp("Tagging","BW",size.mat[2])
-# fun.plot.sp("LatestAcces","BW",size.mat[2])
-# 
-# fun.plot.sp("Tagging","WH",size.mat[3])
-# fun.plot.sp("LatestAcces","WH",size.mat[3])
-
-
-
-#2. MANIPULATE DATA
-
-#select relevant columns for receiver data
-  #Perth
-# SMN_VR4G_metro=SMN_VR4G_metro[,match(c("Station No","Lat","Long"),names(SMN_VR4G_metro))]
-# SMN_VR4G_metro$line="SMN.VR4"
-# SMN_VR2W_metro$line="SMN.VR2"
-# OTN_VR2W_metro$line="OTN"
-# 
-#   #Southwest
-# TheseCols=c("Station No","Receiver No#","Date in","Actual Deg South","Actual Min South","Actual Deg East","Actual Min East")
-# SMN_VR2W_Hamelin=SMN_VR2W_Hamelin[,match(TheseCols,names(SMN_VR2W_Hamelin))]
-# SMN_VR2W_Albany=SMN_VR2W_Albany[,match(TheseCols,names(SMN_VR2W_Albany))]
-# DoF_Chatham=DoF_Chatham[,match(TheseCols,names(DoF_Chatham))]
-# SMN_VR2W_Hamelin$line="Hamelin"
-# SMN_VR2W_Albany$line="Albany"
-# DoF_Chatham$line="Chatham"
-# 
-# #combine receivers
-# Perth=rbind(SMN_VR4G_metro,SMN_VR2W_metro,OTN_VR2W_metro)
-# SouthWest=rbind(SMN_VR2W_Hamelin,SMN_VR2W_Albany,DoF_Chatham)
-# SouthWest$Long=SouthWest$"Actual Deg East"+(SouthWest$"Actual Min East"/60)   #convert mins to decimals degrees
-# SouthWest$Lat=-(SouthWest$"Actual Deg South"+(SouthWest$"Actual Min South"/60))
+###### MANIPULATE DATA ############
 
 #Use only sharks tagged in WA
 Tagging=subset(Tagging,Long.rels<=129 | is.na(Long.rels))
@@ -192,17 +95,6 @@ All.Species=as.character(Species.Codes$Species)
 names(All.Species)=as.character(Species.Codes$COMMON_NAME)
 
 
-
-#fishing effort         #MISSING: replace by monthly effort by cell!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#Tagging$Effort=10
-
-#reporting rate         #MISSING: replace by monthly effort by cell!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#Tagging$Reporting=1   #scale: 0-1 (with 1 = 100% reporting)
-
-#record weight
-#Tagging$WEIGHT=(1/Tagging$Effort)*(Tagging$Reporting)
-
-
 #Keep only relevant species
 Tagging=subset(Tagging,Species%in%All.Species)
 
@@ -211,8 +103,6 @@ Vec.all.species=unique(Tagging$Species)
 #Remove missidentified gummies
 Tagging=subset(Tagging,!(Species=="GM" & Lat.rels>(-26)))
 
-#Recaptured or not 
-Tagging$Recaptured=with(Tagging,ifelse(!is.na(Yr.rec)|!is.na(Lat.rec)|!is.na(Long.rec),"Yes","No"))
 
 #Valid Recapture (i.e. after or equal release date)      
 Tagging$Jday.rel=with(Tagging,Yr.rel+(Mn.rel/12) + (Day.rel/(12*31)))
@@ -234,13 +124,31 @@ Tagging$CAP_FL=with(Tagging,
           ifelse(Species=="GM" & CAP_FL<25,NA,
           CAP_FL)))))
 
-#export data for mark recapture analysis
-write.csv(Tagging,"C:/Matias/Analyses/Data_outs/Tagging_conventional.data.csv",row.names=F)
-
 #Convert all factors to character 
 Tagging %>% mutate(across(where(is.factor), as.character)) -> Tagging
 
-#Table 1. Summary of numbers, size and sex ratios for all shark and ray species  
+
+#Add size bins
+Tagging=Tagging%>%
+  mutate(Rel_FL.bin=as.character(10*round(Rel_FL/10)),
+         CAP_FL.bin=as.character(10*round(CAP_FL/10)))
+
+#Time at liberty
+Tagging$DATE_REL=as.Date( paste( Tagging$Yr.rel,Tagging$Mn.rel , Tagging$Day.rel , sep = "-" )  , format = "%Y-%m-%d" )
+Tagging$DATE_CAPTR=as.Date( paste( Tagging$Yr.rec,Tagging$Mn.rec , Tagging$Day.rec , sep = "-" )  , format = "%Y-%m-%d" )
+Tagging$DaysAtLarge=as.numeric(round((Tagging$DATE_CAPTR-Tagging$DATE_REL),0))
+Tagging$DaysAtLarge=with(Tagging,ifelse(DaysAtLarge<0,NA,DaysAtLarge))
+
+Tagging=Tagging%>%
+  mutate(YrsAtLarge.bin=round(DaysAtLarge/365))
+
+#Block
+Tagging=Tagging%>%
+  mutate(Block=paste(trunc(abs(Lat.rels)),trunc(Long.rels)-100,sep=''))
+
+
+# Table 1. -----------------------------------------------------------------------
+# Summary of numbers, size and sex ratios for all shark and ray species  
 Tab1.fun=function(Spec)
 {
   dat=subset(Tagging,Species==Spec)
@@ -369,8 +277,15 @@ Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
                    'Size.range(cm).Recapture'=Rec.fl)
 tab_df(Tabl1.doc,file="Paper/Tabl1.doc")
  
+
+
+# Early exports -----------------------------------------------------------
+
+#export data for mark recapture analysis
+write.csv(Tagging,"C:/Matias/Analyses/Data_outs/Tagging_conventional.data.csv",row.names=F)
+
  
-#Export data for Sarah Jakobs analysis
+#export data for Sarah Jakobs analysis
 do.Sarah=FALSE
 if(do.Sarah)
 {
@@ -379,8 +294,7 @@ if(do.Sarah)
   write.csv(Sarah.J,"C:/Matias/Students/Sarah Jakobs/Data/Conv_tag.csv",row.names=F)
 }
 
-
-#Export data for Colin's mpa analysis
+#export data for Colin's mpa analysis
 do.Colin=FALSE
 if(do.Colin)
 {
@@ -396,8 +310,8 @@ if(do.Colin)
   
 }
 
+# Chi-square test of sex ratios -----------------------------------------------------------
 
-#Chi-square test of sex ratios
 X2.fun=function(Spec)
 {
   dat=subset(Tagging,Species==Spec)
@@ -412,8 +326,8 @@ X2.fun=function(Spec)
   if(sum(is.na(Sex.rel))>=1)Sex.rel=NULL
   if(length(Sex.rel)>1)X2.rel=chisq.test(Sex.rel)
 
-
-  
+  Sex.rec=NULL
+  Tab.out=NULL
   if(nrow(dat.rec)>0)
   {
     Sex.rec=table(dat.rec$Sex)
@@ -421,17 +335,31 @@ X2.fun=function(Spec)
     Sex.rec=Sex.rec[id]
     if(sum(is.na(Sex.rec))>=1)Sex.rec=NULL
     if(length(Sex.rec)>1)X2.rec=chisq.test(Sex.rec)
+    
+    if(Spec%in%SPECIES)Tab.out=data.frame(Species=dat$COMMON_NAME[1],
+                       M.rel=Sex.rel[1],
+                       F.rel=Sex.rel[2],
+                       X2.p=round(X2.rel$p.value,2),
+                       M.rec=Sex.rec[1],
+                       F.rec=Sex.rec[2],
+                       X2.rec.p=round(X2.rec$p.value,2))
   }
-  return(list(X2.rel=X2.rel,X2.rec=X2.rec))
+  return(list(n.rel=Sex.rel,X2.rel=X2.rel,n.rec=Sex.rec,X2.rec=X2.rec,Tab.out=Tab.out))
   
 }
 X2.list=vector('list',length(Vec.all.species))
 names(X2.list)=Vec.all.species
-for (i in 1:length(Vec.all.species)) X2.list[[i]]=X2.fun(Vec.all.species[i])
+for (i in 1:length(Vec.all.species)) X2.list[[i]]=X2.fun(Spec=Vec.all.species[i])
 
+Tab.Chi.sex=do.call(rbind,sapply(X2.list,function(x)x[5]))
+rownames(Tab.Chi.sex)=NULL
+tab_df(Tab.Chi.sex,file="Paper/Tabl.Chi.sex.doc")
 
+# Recapture methods  -----------------------------------------------------------
+Rec.m=table(Tagging$COMMON_NAME,Tagging$CAPT_METHD)
+write.csv(Rec.m,"Recapture.methods.csv")
 
-#2. MAPPING 
+# MAPPING  -----------------------------------------------------------
 add.depth="NO"
 
 Tagging$Lat.rec=with(Tagging,ifelse(Lat.rec==0,NA,Lat.rec))
@@ -577,21 +505,37 @@ fn.axis=function()
 
 Tagging$Lat.rels=with(Tagging,ifelse(Species=="BW" & Long.rels<114 & Lat.rels>-17.7,-21.765,Lat.rels))
 
+blk.wht=TRUE
+if(blk.wht)
+{
+  Le.col=c("grey65","white","black")
+  BordeR=1
+}else
+{
+   Le.col=c(rgb(1,.1,.1,alpha=.3),
+            rgb(.1,1,.1,alpha=.3),
+            rgb(.1,.1,1,alpha=.3))
+   BordeR='transparent'
+}
+
+
 Map2.fn=function(Spec,BKS,y)
 {  
   dat=subset(Tagging,Species%in%Spec & !is.na(Rel_FL))
   
   dat$col=cut(dat$Rel_FL,BKS)
   CUTS=levels(dat$col)
-  dat$col=with(dat,ifelse(col==CUTS[1],"grey65",ifelse(col==CUTS[2],"white",
-                              ifelse(col==CUTS[3],"black",NA))))
+   dat$col=with(dat,ifelse(col==CUTS[1],Le.col[1],
+                    ifelse(col==CUTS[2],Le.col[2],
+                    ifelse(col==CUTS[3],Le.col[3],
+                    NA))))
   if(Spec=="TK")dat$Long.rels=with(dat,ifelse(Long.rels<114&Lat.rels>(-18),121,Long.rels))
     
     
   
   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
           border="black",bg="white",plt = NULL)
-  points(dat$Long.rels,dat$Lat.rels,pch=21,bg=dat$col,cex=1.2,col=1)
+  points(dat$Long.rels,dat$Lat.rels,pch=21,bg=dat$col,cex=1.2,col=BordeR)
   fn.axis()
   axis(side = 2, at = seq(range.lat[1],range.lat[2],4), 
        labels = -seq(range.lat[1],range.lat[2],4),tck=-0.035,las=1,cex.axis=1.1)
@@ -603,7 +547,7 @@ Map2.fn=function(Spec,BKS,y)
   
   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
           border="black",bg="white",plt = NULL)
-  points(dat$Long.rec,dat$Lat.rec,pch=21,col=1,cex=1.2,bg=dat$col)
+  points(dat$Long.rec,dat$Lat.rec,pch=21,col=BordeR,cex=1.2,bg=dat$col)
   fn.axis()   
   if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
                         labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.1) 
@@ -612,29 +556,24 @@ Map2.fn=function(Spec,BKS,y)
 fn.lg=function(x)
 {
   legend('right',x,bty='n',pch=rep(21,3),
-         pt.cex=1.5,pt.bg=c("grey65","white","black"),title="FL (cm)")
+         pt.cex=1.5,pt.bg=Le.col,title="FL (cm)")
 }
 add="NO"
 TIT="YES"
-tiff(file="Paper/Map.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
+tiff(file="Paper/Figure1_Map.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
 par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
 Map2.fn("TK",BKS=c(0,100,150,270),"Sandbar shark")
 fn.lg(c("<100","100-150",">150"))
-
 TIT="NO"
 Map2.fn("BW",BKS=c(0,100,200,300),"Dusky shark")
 fn.lg(c("<100","100-200",">200"))
-
 Map2.fn("GM",BKS=c(0,90,120,200),"Gummy shark")
 fn.lg(c("<90","90-120",">120"))
-
 add="YES"
 Map2.fn("WH",BKS=c(0,90,120,200),"Whiskery shark")
 fn.lg(c("<90","90-120",">120"))
-
 mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
 mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
-
 fn.inset(WHERE=c(.2,.475,.75,.99))
 dev.off()
 
@@ -718,32 +657,25 @@ if(add.Map.simple=="YES")
   
 }
 
-#Deje ACA, finish updating
-#Release and recaptures for other species
+#Map Release and recaptures for other species
 Tabl1.matrix$N.rec=as.numeric(as.character(Tabl1.matrix$N.rec))
 Others.rep.map=subset(Tabl1.matrix,N.rec>=5 & !Species%in%c("TK", "BW","GM", "WH"))$Species
-
 add="NO"
 TIT="YES"
-tiff(file="Paper/Map.Other.Species.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
+tiff(file="Paper/Figure1_Map.Other.Species.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
 par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
 Map2.fn("TG",BKS=c(0,100,200,300),"Tiger shark")
 fn.lg(c("<100","100-200",">200"))
-
 TIT="NO"
 Map2.fn("CP",BKS=c(0,100,150,300),"Bronze whaler")
 fn.lg(c("<100","100-200",">200"))
-
 Map2.fn("WW",BKS=c(0,90,120,200),"Western wobbegong")
 fn.lg(c("<90","90-120",">120"))
-
 add="YES"
 Map2.fn("LG",BKS=c(0,90,120,200),"Spinner shark")
 fn.lg(c("<90","90-120",">120"))
-
-mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.3)
-mtext("Longitude (?E)",side=1,outer=T,line=1.5,font=1,las=0,cex=1.3)
-
+mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
+mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
 fn.inset(WHERE=c(.2,.475,.75,.99))
 dev.off()
 
@@ -831,38 +763,7 @@ if(do.Fig.A1=="YES")
 }
 
 
-    #table releases and recaptures by zone
-Tagging$Areas=factor(Tagging$Areas,levels=c("JANSF","WANCSF","closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2","SA"))
-Tagging$Areas.rec=factor(Tagging$Areas.rec,levels=c("JANSF","WANCSF","closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2","SA"))
-
-numInt=10
-col.image =rev(gray(0:(numInt-2)/(numInt-2)))
-
-fn.rel.rec.zn=function(DaT) 
-{
-  a=table(DaT$Areas)
-  b=table(DaT$Areas,DaT$Areas.rec)
-  Tabla=cbind(as.matrix(a),as.matrix(b))
-  prop.rec=b/rowSums(b)
-  image(1:nrow(prop.rec),1:ncol(prop.rec),prop.rec,col=col.image)
-  
-  
-  return(Tabla)
-}
-
-Rel.Rec.zn.san=fn.rel.rec.zn(subset(Tagging,Species=="TK"))
-Rel.Rec.zn.dus=fn.rel.rec.zn(subset(Tagging,Species=="BW"))
-Rel.Rec.zn.gum=fn.rel.rec.zn(subset(Tagging,Species=="GM"))
-Rel.Rec.zn.whis=fn.rel.rec.zn(subset(Tagging,Species=="WH"))
-
-write.csv(Rel.Rec.zn.san,"paper/Table2.Rel.zn.san.csv",row.names=T)
-write.csv(Rel.Rec.zn.dus,"paper/Table2.Rel.zn.dus.csv",row.names=T)
-write.csv(Rel.Rec.zn.gum,"paper/Table2.Rel.zn.gum.csv",row.names=T)
-write.csv(Rel.Rec.zn.whis,"paper/Table2.Rel.zn.whis.csv",row.names=T)
-
-
-
-#3. Size frequency of releases
+# Size frequency of releases  -----------------------------------------------------------
 #note: dodgy recapture size info, don't use, only report size at release
 
 SizeFreq.rel.fn=function(SPEC,YARROW)
@@ -911,25 +812,84 @@ tiff(file="Paper/Figure2.tiff",width = 2400, height = 2400,units = "px", res = 3
 par(mfcol=c(2,2),oma=c(3,4,1.5,.1),mar=c(1,1,1,2),mgp=c(1, 0.75, 0),las=1)
 for(i in 1:length(SPECIES)) 
 {
-  KS.result[[i]]=SizeFreq.rel.fn(SPECIES[i],yArrow[i])
+  KS.result[[i]]=SizeFreq.rel.fn(SPEC=SPECIES[i],YARROW=yArrow[i])
   if(i==2) legend("right",c("Non-recaptured","Recaptured"),fill=c('gray80','gray40'),bty="n",cex=1.25)
-
 }
 mtext("Fork length (cm)",side=1,outer=T,line=1.5,font=1,las=0,cex=2)
 mtext("Frequency",side=2,outer=T,line=2.1,font=1,las=0,cex=2)
 dev.off()
+Tab.Kolmo=as.data.frame(do.call(rbind,sapply(KS.result,function(x)x[1])))
+Tab.Kolmo=cbind(Species=names(SPECIES),Tab.Kolmo)
+Tab.Kolmo=data.frame(Species=unlist(Tab.Kolmo$Species),
+                      statistic=unlist(Tab.Kolmo$statistic),
+                      p.value=unlist(Tab.Kolmo$p.value))
+rownames(Tab.Kolmo)=NULL
+tab_df(Tab.Kolmo,file="Paper/Tabl.Kolmo.Smirnov.doc")
+
+
+size.at.dat=data.frame(x=size.mat,y=.015,COMMON_NAME=names(size.mat),
+                       x2=size.mat,y2=0)
+Tagging%>%
+  mutate(Rec=ifelse(Recaptured=="Yes","Recaptured","Not recaptured"))%>%
+  filter(!is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
+  ggplot(aes(x=Rel_FL, fill=COMMON_NAME)) +
+  geom_density(alpha=0.4) +
+  geom_segment( aes(x = x, y = y, xend = x2, yend = y2, colour = COMMON_NAME), data = size.at.dat,
+                size = 1.5,arrow = arrow(length = unit(0.2, "inches")), show.legend = F)+
+  facet_wrap(~ Rec, ncol = 1)+xlab("Fork length (cm)") + 
+  ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
+  theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14),
+        legend.text=element_text(size=12),
+        legend.title=element_text(size=14),
+        strip.text = element_text(size=14))
+ggsave("Paper/Figure2_density.tiff", width = 6,height = 10, dpi = 300,compression = "lzw")
+
+
+#release depth distribution
+Tagging%>%
+  filter(BOTDEPTH<400 & !is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
+  left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
+  mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))%>%
+  ggplot(aes(x=BOTDEPTH, fill=COMMON_NAME)) +
+  geom_density(alpha=0.4) +
+  facet_wrap(~ Mature, ncol = 1)+ xlab("Bottom depth (m)") + 
+  ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
+  theme(axis.text=element_text(size=8),
+        axis.title=element_text(size=10),
+        legend.text=element_text(size=8),
+        legend.title=element_text(size=10),
+        strip.text = element_text(size=10))
+ggsave("Paper/FigureX_release.depth.dist.tiff", width = 4,height = 6, dpi = 300,compression = "lzw")
+
+fun.depth.stats=function(SPEC)
+{
+  Dat=Tagging%>%
+    filter(Species==SPEC)%>%
+    filter(!is.na(BOTDEPTH))%>%
+    filter(BOTDEPTH<400 & !is.na(Rel_FL))%>%
+    left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
+    mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))
+    
+  z=Dat%>%
+    group_by(Mature)%>%
+    summarise(Median=median(BOTDEPTH),
+              Low.95=quantile(BOTDEPTH,probs=0.025),
+              Up.95=quantile(BOTDEPTH,probs=0.975),
+              Min=min(BOTDEPTH),
+              Max=max(BOTDEPTH))
+  return(cbind(Species=Dat$COMMON_NAME[1],z))
+}
+STORE.z=vector('list',length=length(SPECIES))
+names(STORE.z)=SPECIES
+for (i in 1:length(SPECIES)) STORE.z[[i]]=fun.depth.stats(SPEC=SPECIES[i])
+Combined=do.call(rbind,STORE.z)
+rownames(Combined)=NULL
+tab_df(Combined,file="Paper/Tabl_depth.release.doc")
 
 
 
-#Inspect gear used at recapture and release
-KS.result$"Sandbar shark"
-KS.result$"Dusky shark"
-KS.result$"Whiskery shark"
-KS.result$"Gummy shark"
-
-
-
-#4 Proportion of individuals in different release condition
+# Proportion of individuals in different release condition  -----------------------------------------------------------
 Prop.fn=function(SPEC)
 {
   datos.All=subset(Tagging,Species==SPEC)
@@ -951,8 +911,7 @@ Xsq.Cond=Xsq.SexRatio=KS.result
 #for(i in 1:length(SPECIES)) Xsq.Cond[[i]]=Prop.fn(SPECIES[i])
 
 
-
-#5. Sex ratios of release and recapture individuals
+# Sex ratios of release and recapture individuals  -----------------------------------------------------------
 SexRatio.fn=function(SPEC)
 {
   datos.All=subset(Tagging,Species==SPEC)
@@ -969,16 +928,10 @@ SexRatio.fn=function(SPEC)
   Xsq <- chisq.test(as.table(as.matrix(Condition)))
   return(list(Xsq=Xsq,ratio=Condition))  
 }
-
 #for(i in 1:length(SPECIES)) Xsq.SexRatio[[Species.names[i]]]=SexRatio.fn(SPECIES[i])
 
 
-
-#Time at liberty
-Tagging$DATE_REL=as.Date( paste( Tagging$Yr.rel,Tagging$Mn.rel , Tagging$Day.rel , sep = "-" )  , format = "%Y-%m-%d" )
-Tagging$DATE_CAPTR=as.Date( paste( Tagging$Yr.rec,Tagging$Mn.rec , Tagging$Day.rec , sep = "-" )  , format = "%Y-%m-%d" )
-Tagging$DaysAtLarge=as.numeric(round((Tagging$DATE_CAPTR-Tagging$DATE_REL),0))
-Tagging$DaysAtLarge=with(Tagging,ifelse(DaysAtLarge<0,NA,DaysAtLarge))
+# Create spatial cels  -----------------------------------------------------------
 
 #create 1 degree cells
 cell.size=1   #1 by 1 degree cells
@@ -992,9 +945,7 @@ CELLS$name=with(CELLS,(-Lat.NW*100)+(Long.NW-100)) #as per Simpfendorfer & McAul
 CELLS$centroid.Long=CELLS$Long.+(cell.size/2)
 CELLS$centroid.Lat=CELLS$Lat.-(cell.size/2)
 
-
 #create 10 minute cells
-
 
 #select cells within 300m depth
 # note: for running this code first run Arrows function below
@@ -1020,8 +971,8 @@ Tagging$Rel.name=-(ceiling(Tagging$Lat.rels)) * 100 +(floor(Tagging$Long.rels)-1
 Tagging$Rec.name=-(ceiling(Tagging$Lat.rec)) * 100 +(floor(Tagging$Long.rec)-100)
 
 
+#Create tagging data for pop dyn model  -----------------------------------------------------------
 
-#Create tagging data for pop dyn model
 Tagging=subset(Tagging,!is.na(Long.rels))
 Tagging=subset(Tagging,!is.na(Lat.rels))
 
@@ -1103,7 +1054,7 @@ for (i in 1:length(Pop.din.sp))
   mal=subset(a,Sex=="M")
   YR.rec=sort(unique(a$Yr.rec))
   
-  tiff(file=paste("C:/Matias/Analyses/Population dynamics/Conventional_outputs/",Pop.din.sp[i],".tiff",sep=""),
+  tiff(file=paste("C:/Matias/Analyses/Conventional tagging/General movement/outputs/Maps.for.pop.dyn/",Pop.din.sp[i],".tiff",sep=""),
        width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
   
   par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
@@ -1234,7 +1185,7 @@ for(i in 1:length(Store.group))
 }
 
 
-# Export ------------------------------------------------------------------
+# Export Data for Population modelling------------------------------------------------------------------
 
   #individual based model
 setwd("C:/Matias/Analyses/Data_outs")
@@ -1249,19 +1200,18 @@ for(i in 1:length(Pop.din.sp))
   write.csv(a,paste(getwd(),'/',NmS,'/',NmS,"_Con_tag_Ind.based.mod.csv",sep=""),row.names=F)
   
   #export data for mapping
-  setwd("C:/Matias/Data/Tagging/Pop dyn model/Conventional")
   if(Pop.din.sp[i]%in% c("GM","WH"))
   {
     HnDDl="C:/Matias/Analyses/Movement rate estimation/Joint.estim_ind.base.mod/Show Gummy and whiskery outputs/"
     a=subset(Tagging.pop.din,Species==Pop.din.sp[i] & DaysAtLarge>=30 & !is.na(Rec.zone),
              select=c(Tag.no,DaysAtLarge,Lat.rels,Long.rels,Lat.rec,Long.rec,Rel.zone,Rec.zone))
     write.csv(a,paste(HnDDl,Pop.din.sp[i],"_Raw.Conv.Tag.csv",sep=""),row.names=F)
-    
   }
   
 }
 
   #Other stuff
+setwd("C:/Matias/Data/Tagging/Pop dyn model/Conventional")
 for(i in 1:length(Store.group))
 {
   a=Store.group[[i]]
@@ -1314,23 +1264,18 @@ for(i in 1:length(Store.group.size))
 
 
 
+# Analysis of recapture data only -----------------------------------------
 setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
 
 #keep recaptures only with data on date and position of release and recapture
 All.rel.Tagging=Tagging
 All.rel.Tagging=subset(All.rel.Tagging,Species%in%All.Species)
 
-Tagging=subset(Tagging,Recaptured=="Yes")
-# Tagging=subset(Tagging,!is.na(Lat.rec))   #keep records with NA recapture position for time at liberty analyses
-# Tagging=subset(Tagging,!is.na(Long.rec))
-
-
+Tagging=subset(Tagging,Recaptured=="Yes" & !is.na(Long.rec) & !is.na(DaysAtLarge))
 
 
 #Distance moved (in metres) and bearing (in 360 degrees; 0 degrees= North) 
 #note: follow shortest path (i.e. a Great Circle) and correct for corners
-
-
 Tagging$bearing=Tagging$dist.trav_m=NA #cannot use ifelse with bearing or distcosine functions
 Pos.cols=match(c("Lat.rels","Long.rels","Lat.rec","Long.rec"),names(Tagging))  #find the position of columns Lat.rec and Long.rec 
 for(i in 1:nrow(Tagging))
@@ -1415,14 +1360,179 @@ for(i in 1:nrow(Tagging))
       dist.trav_m[i]))))))))))))))))))
   }
 }
+Tagging=subset(Tagging,dist.trav_m>0)
+
+
+# Calculate distance and position for 1 year @ liberty for those @ liberty > 1 year
+Tagging=Tagging%>%
+          mutate(dist.trav_m_in.1.year=ifelse(DaysAtLarge>365,
+                        365*dist.trav_m/DaysAtLarge,dist.trav_m))
+Fin.pos=as.data.frame(destPointRhumb(p=cbind(Tagging$Long.rels,Tagging$Lat.rels),
+                                     b=Tagging$bearing,
+                                     d=Tagging$dist.trav_m_in.1.year))%>%
+        rename(Long.rec_1.year=lon,
+               Lat.rec_1.year=lat)
+Tagging=cbind(Tagging,Fin.pos)%>%
+        mutate(Long.rec_1.year=ifelse(DaysAtLarge>365,Long.rec_1.year,Long.rec), 
+               Lat.rec_1.year=ifelse(DaysAtLarge>365,Lat.rec_1.year,Lat.rec))
+Tagging$Areas.rec_1.year=with(Tagging,
+                  ifelse(Lat.rec_1.year<=(-26.5) & Lat.rec_1.year>=(-33) & Long.rec_1.year <=116,"WCDGDLF",
+                  ifelse(Lat.rec_1.year<(-33) & Lat.rec_1.year>=(-41) & Long.rec_1.year <=116.5,"JASDGDLF.zone1",
+                  ifelse(Lat.rec_1.year<(-31) & Lat.rec_1.year>=(-41) & Long.rec_1.year >116.5,"JASDGDLF.zone2",
+                  ifelse(Long.rec_1.year>=114 & Long.rec_1.year<=123.75 & Lat.rec_1.year >=(-23),"WANCSF",
+                  ifelse(Long.rec_1.year>123.75 & Lat.rec_1.year >=(-18),"JANSF",
+                  ifelse(Lat.rec_1.year>=(-26.5) & Long.rec_1.year <=114,"Closed",
+                  NA)))))))
+Tagging$Areas.rec_1.year=with(Tagging,
+                  ifelse(Lat.rec_1.year<=(-29) & Long.rec_1.year >129,"SA",Areas.rec_1.year))
+       
+Tagging=Tagging%>%
+  mutate(Areas.rec_1.year=ifelse(DaysAtLarge>365,Areas.rec_1.year,Areas.rec))        
+Tagging=Tagging%>%
+  mutate(Areas.rec_1.year=ifelse(is.na(Areas.rec_1.year) & Lat.rels>(-29) & Lat.rec <(-19.3),"WANCSF",
+                          ifelse(is.na(Areas.rec_1.year) & Long.rels<=(124.071) & Long.rec >=(113.15),"JASDGDLF.zone1",
+                          Areas.rec_1.year)))
+
+
+#table releases and recaptures by zone within a year at liberty
+Tagging$Areas=factor(Tagging$Areas,
+                     levels=c("JANSF","WANCSF","Closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2","SA"))
+Tagging$Areas.rec=factor(Tagging$Areas.rec,
+                     levels=c("JANSF","WANCSF","Closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2","SA"))
+Tagging$Areas.rec_1.year=factor(Tagging$Areas.rec_1.year,
+                     levels=c("JANSF","WANCSF","Closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2","SA"))
+numInt=10
+col.image =rev(gray(0:(numInt-2)/(numInt-2)))
+fn.rel.rec.zn=function(DaT) 
+{
+  DaT=DaT%>%
+    filter(!is.na(Areas))%>%
+    filter(!is.na(Areas.rec_1.year)) 
+  Rel_rec=DaT%>%
+    count(Areas, Areas.rec_1.year,.drop = FALSE)%>%
+    spread(Areas.rec_1.year,n,fill=0)%>%
+    data.frame%>%
+    mutate(N=rowSums(.[-1]))%>%
+    mutate(across(-c(Areas,N), ~ . / !! as.symbol("N")))%>%
+    mutate_at(vars(- !! c('Areas','N')), round, 3)%>%
+    mutate_if(is.numeric , replace_na, replace = 0)
+  return(Rel_rec)
+}
+Rel.Rec.zn=vector('list',length(SPECIES))
+for(i in 1:length(SPECIES)) Rel.Rec.zn[[i]]=fn.rel.rec.zn(DaT=subset(Tagging,Species==SPECIES[i]))
+
+#plot table
+colfunc <- colorRampPalette(c("white","grey60", "black"))
+#colfunc <- colorRampPalette(c("white","khaki2", "darkred"))
+fn.img=function(d,MAIN)
+{
+  Nms=as.character(d$Areas)
+  Nms=ifelse(Nms=="JASDGDLF.zone1","Zone1",ifelse(Nms=="JASDGDLF.zone2","Zone2",Nms))
+  MAT=d%>%
+    dplyr::select(-c(Areas,N))%>%
+    as.matrix
+  BRKS=seq(0,max(MAT,na.rm = T),length.out = 20)
+  image.plot(1:ncol(MAT),1:nrow(MAT),t(MAT),xaxt='n',yaxt='n',ylab="",xlab='',
+             main=MAIN,col=colfunc(length(BRKS)))
+  axis(1,1:ncol(MAT),Nms,las=3,cex.axis=.95)
+  axis(2,1:nrow(MAT),Nms,las=1,cex.axis=.95)
+  grid(nx=ncol(MAT),ny=nrow(MAT),col="black")
+  box()
+}
+
+tiff(file="Paper/Figure3_Release_recap_1yr.tiff",2400,2000, units="px",res=300,compression="lzw")
+par(mfcol=c(2,2),mar=c(4.5,6,1,1),mgp=c(1,.6,0))
+for(i in 1:length(SPECIES)) fn.img(d=Rel.Rec.zn[[i]],MAIN=names(SPECIES)[i])
+mtext("Released",2,outer = T,line=-1.5,las=3,cex=1.3)
+mtext("Recaptured",1,outer = T,line=-1,cex=1.3)
+dev.off()
+
+
+fn.rel.rec.zn_size.bin=function(DaT,biN) 
+{
+  DaT=DaT%>%
+    filter(!is.na(Areas))%>%
+    filter(!is.na(Areas.rec_1.year))%>%
+    mutate(FL.bin=biN*floor(Rel_FL/biN))
+  
+  TAB=table(DaT$FL.bin)
+  N=names(TAB[TAB>5])
+  
+  par(mfrow=n2mfrow(length(N)),mar=c(4.5,6,1,1),mgp=c(1,.6,0))
+  for(n in 1:length(N))
+  {
+    Rel_rec=DaT%>%
+      filter(FL.bin==N[n])
+    nn=nrow(Rel_rec)
+    Rel_rec=Rel_rec%>%
+      count(Areas, Areas.rec_1.year,.drop = FALSE)%>%
+      spread(Areas.rec_1.year,n,fill=0)%>%
+      data.frame%>%
+      mutate(N=rowSums(.[-1]))%>%
+      mutate(across(-c(Areas,N), ~ . / !! as.symbol("N")))%>%
+      mutate_at(vars(- !! c('Areas','N')), round, 3)%>%
+      mutate_if(is.numeric , replace_na, replace = 0)
+    fn.img(d=Rel_rec,MAIN=paste(names(SPECIES)[i]," ",N[n]," cm FL"," (n=",nn,")",sep=""))
+  }
+  mtext("Released",2,outer = T,line=-1.5,las=3,cex=1.3)
+  mtext("Recaptured",1,outer = T,line=-1,cex=1.3)
+}
+bins=c(20,10,10,10)
+pdf("Release_recap_1yr_by.size.pdf")
+for(i in 1:length(SPECIES)) fn.rel.rec.zn_size.bin(DaT=subset(Tagging,Species==SPECIES[i]),biN=bins[i])
+dev.off()
+
+
+#plot mean direction by size bin for 1 year at liberty
+fun1=function(d)
+{
+  d=d%>%
+    filter(!is.na(Lat.rec) | !is.na(Long.rec))%>%
+    mutate(Rel_FL.bin=factor(Rel_FL.bin,levels=sort(unique(as.numeric(Rel_FL.bin)))),
+           Bearing.rad=NISTdegTOradian(bearing))
+  d=subset(d,!is.na(Rel_FL.bin))
+  
+  
+  d=subset(d,!is.na(YrsAtLarge.bin))
+  d=d%>%mutate(YrsAtLarge.bin2=ifelse(YrsAtLarge.bin==0,"<1 year @ liberty",
+                                      ifelse(YrsAtLarge.bin==1,"1-2 years @ liberty",
+                                             ifelse(YrsAtLarge.bin==2,"2-3 years @ liberty",
+                                                    ifelse(YrsAtLarge.bin>2,">3 years @ liberty",NA)))),
+               YrsAtLarge.bin2=factor(YrsAtLarge.bin2,levels=c("<1 year @ liberty",
+                                                               "1-2 years @ liberty",
+                                                               "2-3 years @ liberty",
+                                                               ">3 years @ liberty")))      
+  
+  Uni.area=d%>%distinct(Block,.keep_all = T)%>%dplyr::select(Block,Areas)
+  
+  a=d%>%
+    group_by(Block,Rel_FL.bin,YrsAtLarge.bin2)%>%
+    summarise(Dir=mean(bearing))%>%
+    mutate(Long=100+as.numeric(substr(Block,3,4)),
+           Lat=-as.numeric(substr(Block,1,2)))%>%
+    data.frame
+  Fin.pos=as.data.frame(destPointRhumb(p=cbind(a$Long,a$Lat),b=a$Dir,d=100*1000))%>%
+    rename(Lon.final=lon,
+           Lat.final=lat)
+  cbind(a,Fin.pos)%>%left_join(Uni.area,by='Block')%>%
+    ggplot(aes(Long,Lat))+
+    geom_segment(aes(x = Long, y = Lat, xend = Lon.final, yend = Lat.final, colour = Rel_FL.bin),
+                 arrow = arrow(length = unit(0.25, "cm")))+
+    facet_wrap( vars(YrsAtLarge.bin2))+xlab("Longitude") + ylab("Latitude")+
+    theme_bw() + labs(fill = "Release size bin (cm)")
+  ggsave(paste("Mean.direction_",unique(d$COMMON_NAME),".tiff",sep=''), width = 10,height = 10, dpi = 300,compression = "lzw")
+  
+}
+for(i in 1:length(SPECIES)) fun1(d=Tagging%>%filter(Species==SPECIES[i] & Recaptured=='Yes'))
 
 
 #Rate of Movement (km/day)
 Tagging$ROM=with(Tagging,ifelse(DaysAtLarge>0,(dist.trav_m/(1000*DaysAtLarge)),NA))
 Tagging$ROM=with(Tagging,ifelse(ROM<0,NA,ROM))
-                 
+
+
 #Speed (m/s)
-Tagging$speed=with(Tagging,ifelse(DaysAtLarge>0,(dist.trav_m/(DaysAtLarge*60*60*24)),NA))
+Tagging$speed=with(Tagging,ifelse(ROM>0,(dist.trav_m/(DaysAtLarge*60*60*24)),NA))
 
 
 #remove nonsense records                                                   
@@ -1432,818 +1542,681 @@ daysAtLiberty.threshold=1  #minimum time at liberty
 
 n.records.including.nonsense=nrow(Tagging)
 
-Check.Tagging=subset(Tagging,speed<0 | DaysAtLarge<daysAtLiberty.threshold)  #check these records
   #remove records with negative speed (reporting issues) or less than threshold
-Tagging=subset(Tagging,speed>=0)
+Tagging=subset(Tagging,!is.na(speed))
 Tagging=subset(Tagging,DaysAtLarge>=daysAtLiberty.threshold)   
-
 n.records.without.nonsense=nrow(Tagging)
-
 dropped=100-round(100*n.records.without.nonsense/n.records.including.nonsense)  #percent dropped records after removing nonsense
   
 
-
-#__________Proportion of time within zones_______
+# Proportion of time within zones
 #note: this is used for Risk Assessment of dusky and sandbar
-setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
-Prop.time=Tagging[,match(c("Species","FINTAGNO","Lat.rels","Long.rels","Lat.rec","Long.rec",
-                           "DATE_REL","DATE_CAPTR","dist.trav_m","DaysAtLarge"),names(Tagging))]
-names(Prop.time)[match(c("FINTAGNO","Lat.rels","Long.rels","Lat.rec","Long.rec",
-                         "DATE_REL","DATE_CAPTR","dist.trav_m","DaysAtLarge"),names(Prop.time))]=c("TagCode","Latitude.prev",
-                            "Longitude.prev","Latitude","Longitude","Date.local.prev","Date.local","Dist.moved.conseq.det","days.conseq.det")
-
-#Add fishing zones
-Prop.time$zone=as.character(with(Prop.time,
-     ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
-     ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
-     ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
-    ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
-     ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
-      ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
-      ifelse(Longitude>129 & Latitude<=(-26),"SA",NA)))))))))
-
-Prop.time$zone=with(Prop.time,ifelse(Latitude>(-33) & 
-         Latitude<=(-31) & Longitude>=114.8476 & Longitude<116,"Closed.metro",zone))
-
-Prop.time$zone.prev=as.character(with(Prop.time,
-  ifelse(Longitude.prev>=116.5 & Latitude.prev<=(-26) & Longitude.prev<=129,"Zone2",
-  ifelse(Longitude.prev<116.5 & Latitude.prev<=(-33),"Zone1",
-  ifelse(Latitude.prev>(-33) & Latitude.prev<=(-26) & Longitude.prev<116.5,"West",
-  ifelse(Latitude.prev>(-26) & Longitude.prev<114.833,"Closed.ningaloo",
-  ifelse(Latitude.prev>(-22) & Longitude.prev>=114.833 & Longitude.prev<123.75,"North",
-  ifelse(Latitude.prev>(-22) & Longitude.prev>=123.75,"Joint",
-         ifelse(Longitude.prev>129 & Latitude.prev<=(-26),"SA",
-         NA)))))))))
-
-Prop.time$zone.prev=with(Prop.time,ifelse(Latitude.prev>(-33) & 
-      Latitude.prev<=(-31) & Longitude.prev<116,"Closed.metro",zone.prev))
-
-
-Prop.time$same.zone=with(Prop.time,ifelse(!(zone==zone.prev),"N","Y"))
-
-#Total time monitored
-Prop.time$ReleaseDate=Prop.time$Date.local.prev
-shks=unique(Prop.time$TagCode)
-Total.time.monitored=Prop.time[,match(c("TagCode","days.conseq.det"),names(Prop.time))]
-names(Total.time.monitored)[2]="days.mon"
-
-#Time by zone
-Time.mon.zone=vector('list',length(shks))
-Tim.mon.zn=function(SHK)
-{  
-  dat1=subset(Prop.time,TagCode==SHK)
-  dat1=dat1[!duplicated(dat1$TagCode),]
-  Stay.in.zone=subset(dat1,same.zone=="Y"| is.na(same.zone))
-  Leave.zone=subset(dat1,same.zone=="N")
-  if(nrow(Stay.in.zone)>0) Stay.in.zone$Interpolate="N"
+do.prop.time.zn=FALSE
+if(do.prop.time.zn)
+{
+  Prop.time=Tagging[,match(c("Species","FINTAGNO","Lat.rels","Long.rels","Lat.rec","Long.rec",
+                             "DATE_REL","DATE_CAPTR","dist.trav_m","DaysAtLarge"),names(Tagging))]
+  names(Prop.time)[match(c("FINTAGNO","Lat.rels","Long.rels","Lat.rec","Long.rec",
+                           "DATE_REL","DATE_CAPTR","dist.trav_m","DaysAtLarge"),names(Prop.time))]=c("TagCode","Latitude.prev",
+                                                                                                     "Longitude.prev","Latitude","Longitude","Date.local.prev","Date.local","Dist.moved.conseq.det","days.conseq.det")
   
-  if(nrow(Leave.zone)>0)
-  {
-    Store=vector('list',nrow(Leave.zone))
-    for(s in 1:nrow(Leave.zone))
+  #Add fishing zones
+  Prop.time$zone=as.character(with(Prop.time,
+                                   ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
+                                          ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
+                                                 ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
+                                                        ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
+                                                               ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
+                                                                      ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
+                                                                             ifelse(Longitude>129 & Latitude<=(-26),"SA",NA)))))))))
+  
+  Prop.time$zone=with(Prop.time,ifelse(Latitude>(-33) & 
+                                         Latitude<=(-31) & Longitude>=114.8476 & Longitude<116,"Closed.metro",zone))
+  
+  Prop.time$zone.prev=as.character(with(Prop.time,
+                                        ifelse(Longitude.prev>=116.5 & Latitude.prev<=(-26) & Longitude.prev<=129,"Zone2",
+                                               ifelse(Longitude.prev<116.5 & Latitude.prev<=(-33),"Zone1",
+                                                      ifelse(Latitude.prev>(-33) & Latitude.prev<=(-26) & Longitude.prev<116.5,"West",
+                                                             ifelse(Latitude.prev>(-26) & Longitude.prev<114.833,"Closed.ningaloo",
+                                                                    ifelse(Latitude.prev>(-22) & Longitude.prev>=114.833 & Longitude.prev<123.75,"North",
+                                                                           ifelse(Latitude.prev>(-22) & Longitude.prev>=123.75,"Joint",
+                                                                                  ifelse(Longitude.prev>129 & Latitude.prev<=(-26),"SA",
+                                                                                         NA)))))))))
+  
+  Prop.time$zone.prev=with(Prop.time,ifelse(Latitude.prev>(-33) & 
+                                              Latitude.prev<=(-31) & Longitude.prev<116,"Closed.metro",zone.prev))
+  
+  
+  Prop.time$same.zone=with(Prop.time,ifelse(!(zone==zone.prev),"N","Y"))
+  
+  #Total time monitored
+  Prop.time$ReleaseDate=Prop.time$Date.local.prev
+  shks=unique(Prop.time$TagCode)
+  Total.time.monitored=Prop.time[,match(c("TagCode","days.conseq.det"),names(Prop.time))]
+  names(Total.time.monitored)[2]="days.mon"
+  
+  #Time by zone
+  Time.mon.zone=vector('list',length(shks))
+  Tim.mon.zn=function(SHK)
+  {  
+    dat1=subset(Prop.time,TagCode==SHK)
+    dat1=dat1[!duplicated(dat1$TagCode),]
+    Stay.in.zone=subset(dat1,same.zone=="Y"| is.na(same.zone))
+    Leave.zone=subset(dat1,same.zone=="N")
+    if(nrow(Stay.in.zone)>0) Stay.in.zone$Interpolate="N"
+    
+    if(nrow(Leave.zone)>0)
     {
-      a=Leave.zone[s,]
-      n=as.numeric(a$Date.local-a$Date.local.prev)
-      b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),c(Longitude,Latitude),n=n, addStartEnd=F))
-      
-      #Add corners
-      if(a$zone.prev=="North" & a$zone%in%c("Closed.metro","Zone1","West"))
+      Store=vector('list',nrow(Leave.zone))
+      for(s in 1:nrow(Leave.zone))
       {
+        a=Leave.zone[s,]
         n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
-        n2=distCosine(Exmouth,Shark.bay)/1000
-        n3=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
+        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),c(Longitude,Latitude),n=n, addStartEnd=F))
         
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
-        b1=gcIntermediate(Exmouth,Shark.bay,n=n2, addStartEnd=F)
-        b2=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n3, addStartEnd=F))
-        b=rbind(b,b1,b2)
-      }
-      if(a$zone.prev=="North" & a$zone%in%c("Zone2","SA"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
-        n2=distCosine(Exmouth,Shark.bay)/1000
-        n3=distCosine(Shark.bay,Cape.Leuwin)/1000
-        n4=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3+n4
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
-        n4=round(n*(n4/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
-        b1=gcIntermediate(Exmouth,Shark.bay,n=n2, addStartEnd=F)
-        b2=gcIntermediate(Shark.bay,Cape.Leuwin,n=n3, addStartEnd=F)
-        b3=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n4, addStartEnd=F))
-        b=rbind(b,b1,b2,b3)
-      }
+        #Add corners
+        if(a$zone.prev=="North" & a$zone%in%c("Closed.metro","Zone1","West"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
+          n2=distCosine(Exmouth,Shark.bay)/1000
+          n3=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
+          b1=gcIntermediate(Exmouth,Shark.bay,n=n2, addStartEnd=F)
+          b2=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n3, addStartEnd=F))
+          b=rbind(b,b1,b2)
+        }
+        if(a$zone.prev=="North" & a$zone%in%c("Zone2","SA"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
+          n2=distCosine(Exmouth,Shark.bay)/1000
+          n3=distCosine(Shark.bay,Cape.Leuwin)/1000
+          n4=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3+n4
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          n4=round(n*(n4/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
+          b1=gcIntermediate(Exmouth,Shark.bay,n=n2, addStartEnd=F)
+          b2=gcIntermediate(Shark.bay,Cape.Leuwin,n=n3, addStartEnd=F)
+          b3=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n4, addStartEnd=F))
+          b=rbind(b,b1,b2,b3)
+        }
+        
+        if(a$zone.prev%in%c("Closed.ningaloo") & a$zone%in%c("Zone2","SA"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
+          n2=distCosine(Shark.bay,Cape.Leuwin)/1000    
+          n3=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
+          b1=gcIntermediate(Shark.bay,Cape.Leuwin,n=n2, addStartEnd=F)
+          b2=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n3, addStartEnd=F))
+          b=rbind(b,b1,b2)
+        }
+        if(a$zone.prev%in%c("Closed.ningaloo") & a$zone%in%c("Zone1","Closed.metro","West"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
+          n2=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
+          b1=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n2, addStartEnd=F))
+          b=rbind(b,b1)
+        }
+        
+        if(a$zone.prev%in%c("Closed.metro","West") & a$zone%in%c("Zone2","SA"))        
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
+          n2=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
+          b1=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n2, addStartEnd=F))
+          b=rbind(b,b1)
+        }
+        if(a$zone.prev%in%c("Closed.metro","Zone1","West") & a$zone%in%c("Closed.ningaloo"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
+          n2=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
+          b1=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n2, addStartEnd=F))
+          b=rbind(b,b1)
+        }
+        
+        if(a$zone.prev=="Closed.ningaloo" & a$zone%in%c("North"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
+          n2=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
+          b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n2, addStartEnd=F))
+          b=rbind(b,b3)
+        }
+        
+        if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("Closed.ningaloo"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
+          n2=distCosine(Cape.Leuwin,Shark.bay)/1000
+          n3=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
+          b1=gcIntermediate(Cape.Leuwin,Shark.bay,n=n2, addStartEnd=F)
+          b2=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n3, addStartEnd=F))
+          b=rbind(b,b1,b2)
+        }
+        if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("Closed.metro","West"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
+          n2=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
+          b1=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n2, addStartEnd=F))
+          b=rbind(b,b1)
+        }
+        if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("North"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
+          n2=distCosine(Cape.Leuwin,Shark.bay)/1000
+          n3=distCosine(Shark.bay,Exmouth)/1000
+          n4=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3+n4
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          n4=round(n*(n4/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
+          b1=gcIntermediate(Cape.Leuwin,Shark.bay,n=n2, addStartEnd=F)
+          b2=gcIntermediate(Shark.bay,Exmouth,n=n3, addStartEnd=F)
+          b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n4, addStartEnd=F))
+          b=rbind(b,b1,b2,b3)
+        }
+        
+        if(a$zone.prev%in%c("Closed.metro","West") & a$zone%in%c("North"))
+        {
+          n=as.numeric(a$Date.local-a$Date.local.prev)
+          n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
+          n2=distCosine(Shark.bay,Exmouth)/1000
+          n3=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
+          TN=n1+n2+n3
+          n1=round(n*(n1/TN))
+          n2=round(n*(n2/TN))
+          n3=round(n*(n3/TN))
+          b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
+          b2=gcIntermediate(Shark.bay,Exmouth,n=n2, addStartEnd=F)
+          b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n3, addStartEnd=F))
+          b=rbind(b,b2,b3)
+        }
+        
+        x=a[rep(seq_len(nrow(a)), n),]
+        this.na=match(c("Latitude.prev","Longitude.prev","same.zone"),names(x))
+        x[,this.na]=NA
+        if(!nrow(x)==nrow(b)) x=x[1:nrow(b),]
+        x$Longitude=b[,1]
+        x$Latitude=b[,2]
+        Day.seq=seq(1,n,1)*24*60*60
+        if(!length(Day.seq)==nrow(b)) Day.seq=Day.seq[1:nrow(b)]
+        x$Date.local=a$Date.local.prev+Day.seq       
+        
+        Store[[s]]=x
+      }  
+      Store=do.call(rbind,Store)
+      Store$zone=as.character(with(Store,
+                                   ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
+                                          ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
+                                                 ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
+                                                        ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
+                                                               ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
+                                                                      ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
+                                                                             ifelse(Latitude<=(-26) & Longitude>129,"SA",NA)))))))))
+      Store$zone=with(Store,ifelse(Latitude>(-33) & 
+                                     Latitude<=(-31) & Longitude<116,"Closed.metro",zone))
+      Store$Interpolate="Y"
+    }
+    
+    if(nrow(Leave.zone)==0) All=Stay.in.zone
+    if(nrow(Leave.zone)>0) All=rbind(Store,Stay.in.zone)
+    All$Dupl=with(All,paste(Date.local,zone))
+    All=All[!duplicated(All$Dupl),]
+    All=All[order(All$TagCode,All$Date.local),]
+    
+    return(All)
+  }
+  system.time(for (i in 1:length(shks))Time.mon.zone[[i]]=Tim.mon.zn(shks[i]))
+  Time.mon.zone=do.call(rbind,Time.mon.zone)  
+  
+  
+  #aggregate number of days within each zone
+  Time.mon.zone$Days=1
+  
+  Species.time.zone=aggregate(Days~zone+TagCode+Species,Time.mon.zone,sum,na.rm=T)
+  Species.time.zone=subset(Species.time.zone,!TagCode=="")
+  aa=Species.time.zone[duplicated(Species.time.zone$TagCode),]
+  aa=unique(aa$TagCode)
+  
+  Species.time.zone=merge(Species.time.zone,Total.time.monitored,by="TagCode",all.x=T)
+  Species.time.zone$Days=with(Species.time.zone,ifelse(!TagCode%in%aa,days.mon,Days))
+  
+  
+  Species.time.zone$prop.time.in.zn=Species.time.zone$Days/Species.time.zone$days.mon
+  Species.time.zone=Species.time.zone[,-match("Days",names(Species.time.zone))]  
+  
+  #Show.proportions="YES"  #show proportion of days monitored by zone
+  Show.proportions="NO"  #show number of days by zone
+  if(Show.proportions=="NO") Species.time.zone$prop.time.in.zn=round(with(Species.time.zone,
+                                                                          days.mon *prop.time.in.zn))
+  
+  Species.time.zone=reshape(Species.time.zone,v.names = "prop.time.in.zn", idvar = c("TagCode","Species","days.mon"),
+                            timevar = "zone", direction = "wide")
+  names(Species.time.zone)=c("TagCode","Species","Tot.days.mon.","Zone2","SA","Zone1",
+                             "Closed.ningaloo","West","Closed.metro","North","Joint")
+  
+  Species.time.zone=Species.time.zone[order(Species.time.zone$Species,Species.time.zone$TagCode),
+                                      match(c("Species","TagCode","Joint","North","Closed.ningaloo","Closed.metro",
+                                              "West","Zone1","Zone2","SA","Tot.days.mon."),names(Species.time.zone))]  
+  
+  Species.time.zone[is.na(Species.time.zone)]=0
+  ID.thiS=match(c("Joint","North","Closed.ningaloo","Closed.metro","West",
+                  "Zone1","Zone2","SA"),names(Species.time.zone))
+  Species.time.zone[,ID.thiS]=Species.time.zone[,ID.thiS]
+  
+  #add zone release
+  Time.mon.zone$Zone.rel=Time.mon.zone$zone.prev
+  dummy=subset(Time.mon.zone,select=c(TagCode,Species,Zone.rel))
+  dummy=dummy[!duplicated(paste(dummy$TagCode,dummy$Species,dummy$Zone.rel)),]
+  Species.time.zone=merge(Species.time.zone,dummy,by=c("TagCode","Species"),all.x=T)
+  
+  Species.time.zone=Species.time.zone[order(Species.time.zone$Species,Species.time.zone$Zone.rel,
+                                            -Species.time.zone$Tot.days.mon.),match(c("Species","Tot.days.mon.","TagCode","Zone.rel",
+                                                                                      "Joint","North","Closed.ningaloo","West" ,"Closed.metro","Zone1","Zone2","SA"),colnames(Species.time.zone))]
+  
+  
+  
+  #plot proportions
+  # Zns=c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA")
+  # Zns.leg=c("Joint","North","Ningaloo","West","Metro closure","Zone1","Zone2","SA")
+  # COL.prop=c("darkolivegreen1","aquamarine3","chartreuse","darkgreen","cadetblue",
+  #            "deepskyblue","blue4","cornflowerblue")
+  # names(COL.prop)=Zns
+  
+  
+  #Zones (same colors as in acoustic tagging)
+  Zns=c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA")
+  Zns.leg=c("Joint","WANCSF","Ningaloo","WCDGDLF","Metro closure","Zone1","Zone2","SA")
+  COL.prop=c("darkolivegreen1","lightseagreen","seagreen4","lightgreen","olivedrab4","olivedrab3","mediumseagreen","cornflowerblue")
+  names(COL.prop)=Zns  
+  
+  
+  # plot(1:8,col=COL.prop,pch=19,cex=3,ylim=c(0,9))
+  # text(1:8,Zns)
+  # points(1:8,0:7,col=COL.prop,pch=19,cex=3)
+  
+  #MIN.TIM.MON=30     #minimum time monitored displayed
+  #MIN.TIM.MON=365
+  MIN.TIM.MON=1
+  Species.time.zone_1_30=subset(Species.time.zone,Tot.days.mon.>1 & Tot.days.mon.<=30) 
+  Species.time.zone_30_365=subset(Species.time.zone,Tot.days.mon.>30 & Tot.days.mon.<=365) 
+  Species.time.zone_365=subset(Species.time.zone,Tot.days.mon.>365) 
+  
+  
+  What.prop="Just zone"
+  #What.prop="Zone and growth"
+  
+  #a. Proportion of time per zone
+  if(What.prop=="Just zone")
+  {
+    fn.plot.prop=function(what)
+    {
+      a=subset(Species.time.zone,Species==what)
+      id=match(Zns,names(a))
+      a[,id]=a[,id]/rowSums(a[,id])
+      crap=as.data.frame(as.matrix(COL.prop))
+      names(crap)="Col"
+      crap$Zone.rel=rownames(crap)
+      a=merge(a,crap,by="Zone.rel")
+      a$Sort=with(a,ifelse(Zone.rel=="North",1,
+                           ifelse(Zone.rel=="Closed.ningaloo",2,
+                                  ifelse(Zone.rel=="West",3,
+                                         ifelse(Zone.rel=="Closed.metro",4,
+                                                ifelse(Zone.rel=="Zone1",5,
+                                                       ifelse(Zone.rel=="Zone2",6,7)))))))
+      a=a[order(a$Sort),]
+      par(mai=c(.45,.5,.13,.6),oma = c(.15, .4, .6, 0),xpd=T,mgp=c(1,.425,0))
+      r=barplot(t(a[,id]), col = COL.prop,horiz=T,beside=F,yaxt='n',cex.axis=1.1)
+      legend("top",Zns.leg,bty='n',pt.cex=2,pch=15,col=COL.prop,horiz=T,inset=c(0,-.04),
+             cex=0.75)
       
-      if(a$zone.prev%in%c("Closed.ningaloo") & a$zone%in%c("Zone2","SA"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
-        n2=distCosine(Shark.bay,Cape.Leuwin)/1000    
-        n3=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
-        b1=gcIntermediate(Shark.bay,Cape.Leuwin,n=n2, addStartEnd=F)
-        b2=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n3, addStartEnd=F))
-        b=rbind(b,b1,b2)
-      }
-      if(a$zone.prev%in%c("Closed.ningaloo") & a$zone%in%c("Zone1","Closed.metro","West"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
-        n2=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
-        b1=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n2, addStartEnd=F))
-        b=rbind(b,b1)
-      }
       
-      if(a$zone.prev%in%c("Closed.metro","West") & a$zone%in%c("Zone2","SA"))        
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
-        n2=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
-        b1=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n2, addStartEnd=F))
-        b=rbind(b,b1)
-      }
-      if(a$zone.prev%in%c("Closed.metro","Zone1","West") & a$zone%in%c("Closed.ningaloo"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
-        n2=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
-        b1=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n2, addStartEnd=F))
-        b=rbind(b,b1)
-      }
-      
-      if(a$zone.prev=="Closed.ningaloo" & a$zone%in%c("North"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Exmouth)/1000    #divide time proportional to distance
-        n2=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Exmouth,n=n1, addStartEnd=F))
-        b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n2, addStartEnd=F))
-        b=rbind(b,b3)
-      }
-      
-      if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("Closed.ningaloo"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
-        n2=distCosine(Cape.Leuwin,Shark.bay)/1000
-        n3=distCosine(Shark.bay,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
-        b1=gcIntermediate(Cape.Leuwin,Shark.bay,n=n2, addStartEnd=F)
-        b2=with(a,gcIntermediate(Shark.bay,c(Longitude,Latitude),n=n3, addStartEnd=F))
-        b=rbind(b,b1,b2)
-      }
-      if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("Closed.metro","West"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
-        n2=distCosine(Cape.Leuwin,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
-        b1=with(a,gcIntermediate(Cape.Leuwin,c(Longitude,Latitude),n=n2, addStartEnd=F))
-        b=rbind(b,b1)
-      }
-      if(a$zone.prev%in%c("Zone2","SA") & a$zone%in%c("North"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Cape.Leuwin)/1000    #divide time proportional to distance
-        n2=distCosine(Cape.Leuwin,Shark.bay)/1000
-        n3=distCosine(Shark.bay,Exmouth)/1000
-        n4=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3+n4
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
-        n4=round(n*(n4/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Cape.Leuwin,n=n1, addStartEnd=F))
-        b1=gcIntermediate(Cape.Leuwin,Shark.bay,n=n2, addStartEnd=F)
-        b2=gcIntermediate(Shark.bay,Exmouth,n=n3, addStartEnd=F)
-        b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n4, addStartEnd=F))
-        b=rbind(b,b1,b2,b3)
-      }
-      
-      if(a$zone.prev%in%c("Closed.metro","West") & a$zone%in%c("North"))
-      {
-        n=as.numeric(a$Date.local-a$Date.local.prev)
-        n1=distCosine(c(a$Longitude.prev,a$Latitude.prev),Shark.bay)/1000    #divide time proportional to distance
-        n2=distCosine(Shark.bay,Exmouth)/1000
-        n3=distCosine(Exmouth,c(a$Longitude,a$Latitude))/1000
-        TN=n1+n2+n3
-        n1=round(n*(n1/TN))
-        n2=round(n*(n2/TN))
-        n3=round(n*(n3/TN))
-        b=with(a,gcIntermediate(c(Longitude.prev,Latitude.prev),Shark.bay,n=n1, addStartEnd=F))
-        b2=gcIntermediate(Shark.bay,Exmouth,n=n2, addStartEnd=F)
-        b3=with(a,gcIntermediate(Exmouth,c(Longitude,Latitude),n=n3, addStartEnd=F))
-        b=rbind(b,b2,b3)
-      }
-      
-      x=a[rep(seq_len(nrow(a)), n),]
-      this.na=match(c("Latitude.prev","Longitude.prev","same.zone"),names(x))
-      x[,this.na]=NA
-      if(!nrow(x)==nrow(b)) x=x[1:nrow(b),]
-      x$Longitude=b[,1]
-      x$Latitude=b[,2]
-      Day.seq=seq(1,n,1)*24*60*60
-      if(!length(Day.seq)==nrow(b)) Day.seq=Day.seq[1:nrow(b)]
-      x$Date.local=a$Date.local.prev+Day.seq       
-      
-      Store[[s]]=x
-    }  
-    Store=do.call(rbind,Store)
-    Store$zone=as.character(with(Store,
-         ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
-         ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
-         ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
-         ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
-         ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
-         ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
-                ifelse(Latitude<=(-26) & Longitude>129,"SA",NA)))))))))
-    Store$zone=with(Store,ifelse(Latitude>(-33) & 
-         Latitude<=(-31) & Longitude<116,"Closed.metro",zone))
-    Store$Interpolate="Y"
+      box()
+      points(rep(-0.03,length(r)),r,pch=15,cex=1.5,col=as.character(a$Col))
+      #axis(2,r,a$Zone.rel,las=1,cex.axis=1.25)
+      mtext("Proportion of time",1,line=1.4,cex=1.5)
+      mtext("Release zone",2,line=1.5,cex=1.5)
+      ll=seq(1,length(r),2)
+      axis(4,r,F,tck=-0.005)
+      axis(4,r[ll],a$Tot.days.mon.[ll],las=1,cex.axis=0.5,tck=-0.01)
+      mtext("Days at liberty",4,line=2,cex=1.5)
+    }
+    hnDl="Prop.time.zone/"
+    tiff(file=paste(hnDl,"dusky.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
+    fn.plot.prop(Pop.din.sp[1])
+    dev.off()
+    
+    tiff(file=paste(hnDl,"whiskery.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
+    fn.plot.prop(Pop.din.sp[4])
+    dev.off()
+    
+    tiff(file=paste(hnDl,"gummy.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
+    fn.plot.prop(Pop.din.sp[3])
+    dev.off()
+    
+    tiff(file=paste(hnDl,"sandbar.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
+    fn.plot.prop(Pop.din.sp[2])
+    dev.off()
+    
+    
   }
   
-  if(nrow(Leave.zone)==0) All=Stay.in.zone
-  if(nrow(Leave.zone)>0) All=rbind(Store,Stay.in.zone)
-  All$Dupl=with(All,paste(Date.local,zone))
-  All=All[!duplicated(All$Dupl),]
-  All=All[order(All$TagCode,All$Date.local),]
   
-  return(All)
-}
-system.time(for (i in 1:length(shks))Time.mon.zone[[i]]=Tim.mon.zn(shks[i]))
-Time.mon.zone=do.call(rbind,Time.mon.zone)  
-
-
-#aggregate number of days within each zone
-Time.mon.zone$Days=1
-
-Species.time.zone=aggregate(Days~zone+TagCode+Species,Time.mon.zone,sum,na.rm=T)
-Species.time.zone=subset(Species.time.zone,!TagCode=="")
-aa=Species.time.zone[duplicated(Species.time.zone$TagCode),]
-aa=unique(aa$TagCode)
-
-Species.time.zone=merge(Species.time.zone,Total.time.monitored,by="TagCode",all.x=T)
-Species.time.zone$Days=with(Species.time.zone,ifelse(!TagCode%in%aa,days.mon,Days))
-
-
-Species.time.zone$prop.time.in.zn=Species.time.zone$Days/Species.time.zone$days.mon
-Species.time.zone=Species.time.zone[,-match("Days",names(Species.time.zone))]  
-
-#Show.proportions="YES"  #show proportion of days monitored by zone
-Show.proportions="NO"  #show number of days by zone
-if(Show.proportions=="NO") Species.time.zone$prop.time.in.zn=round(with(Species.time.zone,
-                                days.mon *prop.time.in.zn))
-
-Species.time.zone=reshape(Species.time.zone,v.names = "prop.time.in.zn", idvar = c("TagCode","Species","days.mon"),
-                          timevar = "zone", direction = "wide")
-names(Species.time.zone)=c("TagCode","Species","Tot.days.mon.","Zone2","SA","Zone1",
-                "Closed.ningaloo","West","Closed.metro","North","Joint")
-
-Species.time.zone=Species.time.zone[order(Species.time.zone$Species,Species.time.zone$TagCode),
-                                    match(c("Species","TagCode","Joint","North","Closed.ningaloo","Closed.metro",
-                                            "West","Zone1","Zone2","SA","Tot.days.mon."),names(Species.time.zone))]  
-
-Species.time.zone[is.na(Species.time.zone)]=0
-ID.thiS=match(c("Joint","North","Closed.ningaloo","Closed.metro","West",
-                "Zone1","Zone2","SA"),names(Species.time.zone))
-Species.time.zone[,ID.thiS]=Species.time.zone[,ID.thiS]
-
-#add zone release
-Time.mon.zone$Zone.rel=Time.mon.zone$zone.prev
-dummy=subset(Time.mon.zone,select=c(TagCode,Species,Zone.rel))
-dummy=dummy[!duplicated(paste(dummy$TagCode,dummy$Species,dummy$Zone.rel)),]
-Species.time.zone=merge(Species.time.zone,dummy,by=c("TagCode","Species"),all.x=T)
-
-Species.time.zone=Species.time.zone[order(Species.time.zone$Species,Species.time.zone$Zone.rel,
-      -Species.time.zone$Tot.days.mon.),match(c("Species","Tot.days.mon.","TagCode","Zone.rel",
-      "Joint","North","Closed.ningaloo","West" ,"Closed.metro","Zone1","Zone2","SA"),colnames(Species.time.zone))]
-
-
-
-#plot proportions
-# Zns=c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA")
-# Zns.leg=c("Joint","North","Ningaloo","West","Metro closure","Zone1","Zone2","SA")
-# COL.prop=c("darkolivegreen1","aquamarine3","chartreuse","darkgreen","cadetblue",
-#            "deepskyblue","blue4","cornflowerblue")
-# names(COL.prop)=Zns
-
-
-#Zones (same colors as in acoustic tagging)
-Zns=c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA")
-Zns.leg=c("Joint","WANCSF","Ningaloo","WCDGDLF","Metro closure","Zone1","Zone2","SA")
-COL.prop=c("darkolivegreen1","lightseagreen","seagreen4","lightgreen","olivedrab4","olivedrab3","mediumseagreen","cornflowerblue")
-names(COL.prop)=Zns  
-
-
-# plot(1:8,col=COL.prop,pch=19,cex=3,ylim=c(0,9))
-# text(1:8,Zns)
-# points(1:8,0:7,col=COL.prop,pch=19,cex=3)
-
-#MIN.TIM.MON=30     #minimum time monitored displayed
-#MIN.TIM.MON=365
-MIN.TIM.MON=1
-Species.time.zone_1_30=subset(Species.time.zone,Tot.days.mon.>1 & Tot.days.mon.<=30) 
-Species.time.zone_30_365=subset(Species.time.zone,Tot.days.mon.>30 & Tot.days.mon.<=365) 
-Species.time.zone_365=subset(Species.time.zone,Tot.days.mon.>365) 
-
-
-What.prop="Just zone"
-#What.prop="Zone and growth"
-
-  #a. Proportion of time per zone
-if(What.prop=="Just zone")
-{
-  fn.plot.prop=function(what)
+  #b. Proportion of time by zone with growth
+  if(What.prop=="Zone and growth")
   {
-    a=subset(Species.time.zone,Species==what)
+    fn.plot.prop.growth=function(what,SKLER,SX,whr,CX,iidd,MAX)
+    {
+      a=subset(Species.time.zone,Species==what)
+      id=match(Zns,names(a))
+      ZONAS=colSums(a[,id])
+      dropp=which(ZONAS==0)
+      if(length(dropp)>0) a=a[,-match(names(dropp),names(a))]
+      
+      id=match(Zns,names(a))
+      id=id[!is.na(id)]
+      
+      #add size  
+      dummy=subset(Tagging,FINTAGNO%in%unique(a$TagCode), select=c(FINTAGNO,Rel_FL,Sex,Lat.rec,Long.rec))
+      names(dummy)=c("TagCode","FL.rel","Sex","Latitude","Longitude")
+      
+      #Add fishing zones
+      dummy$zone=as.character(with(dummy,
+                                   ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
+                                          ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
+                                                 ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
+                                                        ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
+                                                               ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
+                                                                      ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
+                                                                             ifelse(Longitude>129 & Latitude<=(-26),"SA",NA)))))))))
+      
+      dummy$zone=with(dummy,ifelse(Latitude>(-33) & 
+                                     Latitude<=(-31) & Longitude>=114.8476 & Longitude<116,"Closed.metro",zone))
+      dummy=subset(dummy,select=c(TagCode, FL.rel, Sex, zone))
+      names(dummy)[match("zone",names(dummy))]="zone.rec"
+      
+      #growth pars
+      Gr.par=Gr[[match(what,names(Gr))]]
+      K.f=Gr.par[match("K.f",names(Gr.par))];K.m=Gr.par[match("K.m",names(Gr.par))]
+      Linf.f=Gr.par[match("Linf.f",names(Gr.par))];Linf.m=Gr.par[match("Linf.m",names(Gr.par))]
+      to.f=Gr.par[match("to.f",names(Gr.par))];to.m=Gr.par[match("to.m",names(Gr.par))]
+      
+      #add size at recapture
+      a=merge(a,dummy,by="TagCode")
+      a=subset(a,!is.na(FL.rel))
+      a$Sex=with(a,ifelse(Sex=="U","F",Sex))
+      a$Age.rel=with(a,ifelse(Sex=="F",to.f-(1/K.f)*log(1-(FL.rel/Linf.f)),
+                              ifelse(Sex=="M",to.m-(1/K.m)*log(1-(FL.rel/Linf.m)),NA))) 
+      a=subset(a,!is.na(Age.rel))
+      a$Age.rec=a$Age.rel+(a$Tot.days.mon./365)
+      a$FL.rec=ifelse(a$Sex=="F",Linf.f*(1-exp(-K.f*(a$Age.rec-to.f))),
+                      Linf.m*(1-exp(-K.m*(a$Age.rec-to.m))))
+      a$Sort=with(a,ifelse(Zone.rel=="Joint",1,
+                           ifelse(Zone.rel=="North",2,
+                                  ifelse(Zone.rel=="Closed.ningaloo",3,
+                                         ifelse(Zone.rel=="West",4,
+                                                ifelse(Zone.rel=="Closed.metro",5,
+                                                       ifelse(Zone.rel=="Zone1",6,
+                                                              ifelse(Zone.rel=="Zone2",7,8))))))))
+      a=subset(a,Sex==SX)
+      RL.Zns=sort(unique(a$Sort))
+      These.Leg=which(names(COL.prop)%in%unique(a$zone.rec))
+      
+      for(tt in 1:length(RL.Zns))
+      {
+        bb=subset(a,Sort==RL.Zns[tt])  
+        bb=bb[!duplicated(bb$TagCode),]
+        bb=bb[order(bb$FL.rel),]    
+        dd=bb[,match(c("Sex","Zone.rel","FL.rel","zone.rec","FL.rec"),names(bb))]
+        DD=dd[,match(c("FL.rel","FL.rec"),names(dd))]
+        DD=DD/MAX
+        ee=bb[,id]  
+        ss=unique(dd$Zone.rel)
+        if(ss=="North") Srt=c("North","Closed.ningaloo","Joint","West","Closed.metro","Zone1","Zone2","SA")
+        
+        if(ss=="Closed.ningaloo") Srt=c("Closed.ningaloo","North","Joint","West","Closed.metro","Zone1","Zone2","SA")
+        if(ss=="West") Srt=c("West","Closed.ningaloo","North","Joint","Closed.metro","Zone1","Zone2","SA")
+        if(ss=="Closed.metro") Srt=c("Closed.metro","West","Closed.ningaloo","North","Joint","Zone1","Zone2","SA")
+        if(ss=="Zone1") Srt=c("Zone1","Closed.metro","West","Closed.ningaloo","North","Joint","Zone2","SA")
+        if(ss=="Zone2") Srt=c("Zone2","Zone1","Closed.metro","West","Closed.ningaloo","North","Joint","SA")
+        if(ss=="SA") Srt=c("SA","Zone2","Zone1","Closed.metro","West","Closed.ningaloo","North","Joint")
+        cols=match(Srt,colnames(ee))
+        cols=cols[!is.na(cols)]
+        ee=ee[,cols]    
+        ee=t(ee)
+        
+        CLSS=COL.prop[match(rownames(ee),names(COL.prop))]  
+        r=barplot(ee,col = CLSS, horiz=T,beside=F,yaxt='n',cex.axis=1.25,xlim=c(-50,max(colSums(ee))*1.05))
+        box()
+        points(rep(0,length(r)),r,pch=19,cex=DD[,1]*SKLER,col="red")
+        points(colSums(ee),r,pch=19,cex=DD[,2]*SKLER,col="red")
+        mtext(paste("Released in ",Zns.leg[RL.Zns[tt]]),2,cex=1.2,line=0.5)
+        if(tt==iidd)
+        {
+          qq=MAX
+          qqq=round(rep(qq,4)*seq(.2,1,.25))
+          legend(whr,paste(qqq),bty='n',pt.cex=(qqq/qq)*SKLER,pch=19,col="red",
+                 title="FL (cm)",cex=1.5)
+        }   
+      }
+      
+      #add zone legend
+      par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+      plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
+      legend("top",Zns.leg[These.Leg],bty='n',pt.cex=2,pch=15,
+             col=COL.prop[These.Leg],xpd = TRUE,horiz=T,inset=c(0,0),cex=1.25)
+      
+      mtext("Days at liberty",1,line=-2,cex=1.5,outer=T)
+      
+    }
+    
+    tiff(file="Prop.time.zone/Proportion.zone.whiskery_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[4],SKLER=2,"F","topright",CX=1.25,iidd=4,160)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.whiskery_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[4],SKLER=2,"M","topright",CX=1.25,iidd=4,160)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.dusky_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    #par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(3, .5, .1, 0),mgp=c(1,.7,0))
+    par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[1],SKLER=2,"F","bottomright",CX=1.25,iidd=2,200)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.dusky_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[1],SKLER=2,"M","bottomright",CX=1.25,iidd=4,200)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.gummy_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[3],SKLER=2,"F","bottomright",CX=1.25,iidd=2,160)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.gummy_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,1),mai=c(.1,.3,.25,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[3],SKLER=2,"M","bottomright",CX=1.25,iidd=1,160)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.sandbar_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(3,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 2, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[2],SKLER=3,"F","topright",CX=1.5,iidd=4,160)
+    dev.off()
+    
+    tiff(file="Prop.time.zone/Proportion.zone.sandbar_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(3,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 2, 1),mgp=c(1,.7,0))
+    fn.plot.prop.growth(Pop.din.sp[2],SKLER=3,"M","topright",CX=1.5,iidd=4,160)
+    dev.off()
+    
+  }
+  #Connectivity plot of overall movement
+  
+  #Image option
+  Image.mig.fn=function(D,what,SP,CE,CE1,OFF)
+  {
+    a=subset(D,Species==what)
+    if(what=="BW") a=subset(a,!Zone.rel=="West")  #remove single recapture from "WCDDLF" for dusky
+    a=a[!duplicated(a$TagCode),]
     id=match(Zns,names(a))
     a[,id]=a[,id]/rowSums(a[,id])
     crap=as.data.frame(as.matrix(COL.prop))
     names(crap)="Col"
     crap$Zone.rel=rownames(crap)
     a=merge(a,crap,by="Zone.rel")
-    a$Sort=with(a,ifelse(Zone.rel=="North",1,
-                         ifelse(Zone.rel=="Closed.ningaloo",2,
-                                ifelse(Zone.rel=="West",3,
-                                       ifelse(Zone.rel=="Closed.metro",4,
-                                              ifelse(Zone.rel=="Zone1",5,
-                                                     ifelse(Zone.rel=="Zone2",6,7)))))))
-    a=a[order(a$Sort),]
-    par(mai=c(.45,.5,.13,.6),oma = c(.15, .4, .6, 0),xpd=T,mgp=c(1,.425,0))
-    r=barplot(t(a[,id]), col = COL.prop,horiz=T,beside=F,yaxt='n',cex.axis=1.1)
-    legend("top",Zns.leg,bty='n',pt.cex=2,pch=15,col=COL.prop,horiz=T,inset=c(0,-.04),
-           cex=0.75)
     
-
-    box()
-    points(rep(-0.03,length(r)),r,pch=15,cex=1.5,col=as.character(a$Col))
-    #axis(2,r,a$Zone.rel,las=1,cex.axis=1.25)
-    mtext("Proportion of time",1,line=1.4,cex=1.5)
-    mtext("Release zone",2,line=1.5,cex=1.5)
-    ll=seq(1,length(r),2)
-    axis(4,r,F,tck=-0.005)
-    axis(4,r[ll],a$Tot.days.mon.[ll],las=1,cex.axis=0.5,tck=-0.01)
-    mtext("Days at liberty",4,line=2,cex=1.5)
-  }
-  hnDl="Paper/Prop.time.zone/"
-  tiff(file=paste(hnDl,"dusky.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
-  fn.plot.prop(Pop.din.sp[1])
-  dev.off()
-  
-  tiff(file=paste(hnDl,"whiskery.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
-  fn.plot.prop(Pop.din.sp[4])
-  dev.off()
-  
-  tiff(file=paste(hnDl,"gummy.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
-  fn.plot.prop(Pop.din.sp[3])
-  dev.off()
-  
-  tiff(file=paste(hnDl,"sandbar.tiff",sep=""),width = 2400, height = 2000,units = "px", res = 300,compression = "lzw")
-  fn.plot.prop(Pop.din.sp[2])
-  dev.off()
-  
-  
-}
-
-
-  #b. Proportion of time by zone with growth
-if(What.prop=="Zone and growth")
-{
-  fn.plot.prop.growth=function(what,SKLER,SX,whr,CX,iidd,MAX)
-  {
-    a=subset(Species.time.zone,Species==what)
-    id=match(Zns,names(a))
-    ZONAS=colSums(a[,id])
-    dropp=which(ZONAS==0)
-    if(length(dropp)>0) a=a[,-match(names(dropp),names(a))]
-    
-    id=match(Zns,names(a))
-    id=id[!is.na(id)]
-    
-    #add size  
-    dummy=subset(Tagging,FINTAGNO%in%unique(a$TagCode), select=c(FINTAGNO,Rel_FL,Sex,Lat.rec,Long.rec))
-    names(dummy)=c("TagCode","FL.rel","Sex","Latitude","Longitude")
-    
-    #Add fishing zones
-    dummy$zone=as.character(with(dummy,
-                                 ifelse(Longitude>=116.5 & Latitude<=(-26) & Longitude<=129,"Zone2",
-                                        ifelse(Longitude<116.5 & Latitude<=(-33),"Zone1",
-                                               ifelse(Latitude>(-33) & Latitude<=(-26) & Longitude<116.5,"West",
-                                                      ifelse(Latitude>(-26) & Longitude<114.833,"Closed.ningaloo",
-                                                             ifelse(Latitude>(-22) & Longitude>=114.833 & Longitude<123.75,"North",
-                                                                    ifelse(Latitude>(-22) & Longitude>=123.75,"Joint",
-                                                                           ifelse(Longitude>129 & Latitude<=(-26),"SA",NA)))))))))
-    
-    dummy$zone=with(dummy,ifelse(Latitude>(-33) & 
-                                   Latitude<=(-31) & Longitude>=114.8476 & Longitude<116,"Closed.metro",zone))
-    dummy=subset(dummy,select=c(TagCode, FL.rel, Sex, zone))
-    names(dummy)[match("zone",names(dummy))]="zone.rec"
-    
-    #growth pars
-    Gr.par=Gr[[match(what,names(Gr))]]
-    K.f=Gr.par[match("K.f",names(Gr.par))];K.m=Gr.par[match("K.m",names(Gr.par))]
-    Linf.f=Gr.par[match("Linf.f",names(Gr.par))];Linf.m=Gr.par[match("Linf.m",names(Gr.par))]
-    to.f=Gr.par[match("to.f",names(Gr.par))];to.m=Gr.par[match("to.m",names(Gr.par))]
-    
-    #add size at recapture
-    a=merge(a,dummy,by="TagCode")
-    a=subset(a,!is.na(FL.rel))
-    a$Sex=with(a,ifelse(Sex=="U","F",Sex))
-    a$Age.rel=with(a,ifelse(Sex=="F",to.f-(1/K.f)*log(1-(FL.rel/Linf.f)),
-                            ifelse(Sex=="M",to.m-(1/K.m)*log(1-(FL.rel/Linf.m)),NA))) 
-    a=subset(a,!is.na(Age.rel))
-    a$Age.rec=a$Age.rel+(a$Tot.days.mon./365)
-    a$FL.rec=ifelse(a$Sex=="F",Linf.f*(1-exp(-K.f*(a$Age.rec-to.f))),
-                    Linf.m*(1-exp(-K.m*(a$Age.rec-to.m))))
-    a$Sort=with(a,ifelse(Zone.rel=="Joint",1,
-                         ifelse(Zone.rel=="North",2,
-                                ifelse(Zone.rel=="Closed.ningaloo",3,
+    a$Sort=with(a,ifelse(Zone.rel=="Joint",7,
+                         ifelse(Zone.rel=="North",6,
+                                ifelse(Zone.rel=="Closed.ningaloo",5,
                                        ifelse(Zone.rel=="West",4,
-                                              ifelse(Zone.rel=="Closed.metro",5,
-                                                     ifelse(Zone.rel=="Zone1",6,
-                                                            ifelse(Zone.rel=="Zone2",7,8))))))))
-    a=subset(a,Sex==SX)
-    RL.Zns=sort(unique(a$Sort))
-    These.Leg=which(names(COL.prop)%in%unique(a$zone.rec))
+                                              ifelse(Zone.rel=="Closed.metro",3,
+                                                     ifelse(Zone.rel=="Zone1",2,1)))))))
     
-    for(tt in 1:length(RL.Zns))
+    a$Zone.rel=as.character(a$Zone.rel)
+    
+    a$Zone.rel=with(a,ifelse(Zone.rel=="Closed.ningaloo","5.Ningaloo",
+                             ifelse(Zone.rel=="Closed.metro","3.Metro",
+                                    ifelse(Zone.rel=="Zone1","2.Zn1",
+                                           ifelse(Zone.rel=="Zone2","1.Zn2",
+                                                  ifelse(Zone.rel=="North","6.North",
+                                                         ifelse(Zone.rel=="Joint","7.Joint",      
+                                                                "4.West")))))))
+    a$Zone.rel=as.factor(a$Zone.rel)
+    MATRX=aggregate(cbind(Joint,North,Closed.ningaloo,West,Closed.metro,Zone1,Zone2,SA)~Zone.rel,a,sum)
+    MATRX[,2:ncol(MATRX)]=MATRX[,2:ncol(MATRX)]/rowSums(MATRX[,2:ncol(MATRX)])
+    
+    colnames(MATRX)[match(c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA"),
+                          colnames(MATRX))]=c("7.Joint","6.North","5.Ningaloo","4.West","3.Metro","2.Zn1","1.Zn2","1.SA")
+    MATRX=MATRX[,match(c("Zone.rel","1.SA","1.Zn2","2.Zn1","3.Metro","4.West","5.Ningaloo","6.North","7.Joint"),names(MATRX))]
+    MATRX$Zone.rel=as.character(MATRX$Zone.rel)
+    
+    ALL.zns=c("1.SA","1.Zn2","2.Zn1","3.Metro","4.West","5.Ningaloo","6.North","7.Joint")
+    ID=ALL.zns[which(!ALL.zns%in%MATRX$Zone.rel)]
+    if(length(ID)>0)
     {
-      bb=subset(a,Sort==RL.Zns[tt])  
-      bb=bb[!duplicated(bb$TagCode),]
-      bb=bb[order(bb$FL.rel),]    
-      dd=bb[,match(c("Sex","Zone.rel","FL.rel","zone.rec","FL.rec"),names(bb))]
-      DD=dd[,match(c("FL.rel","FL.rec"),names(dd))]
-      DD=DD/MAX
-      ee=bb[,id]  
-      ss=unique(dd$Zone.rel)
-      if(ss=="North") Srt=c("North","Closed.ningaloo","Joint","West","Closed.metro","Zone1","Zone2","SA")
-      
-      if(ss=="Closed.ningaloo") Srt=c("Closed.ningaloo","North","Joint","West","Closed.metro","Zone1","Zone2","SA")
-      if(ss=="West") Srt=c("West","Closed.ningaloo","North","Joint","Closed.metro","Zone1","Zone2","SA")
-      if(ss=="Closed.metro") Srt=c("Closed.metro","West","Closed.ningaloo","North","Joint","Zone1","Zone2","SA")
-      if(ss=="Zone1") Srt=c("Zone1","Closed.metro","West","Closed.ningaloo","North","Joint","Zone2","SA")
-      if(ss=="Zone2") Srt=c("Zone2","Zone1","Closed.metro","West","Closed.ningaloo","North","Joint","SA")
-      if(ss=="SA") Srt=c("SA","Zone2","Zone1","Closed.metro","West","Closed.ningaloo","North","Joint")
-      cols=match(Srt,colnames(ee))
-      cols=cols[!is.na(cols)]
-      ee=ee[,cols]    
-      ee=t(ee)
-      
-      CLSS=COL.prop[match(rownames(ee),names(COL.prop))]  
-      r=barplot(ee,col = CLSS, horiz=T,beside=F,yaxt='n',cex.axis=1.25,xlim=c(-50,max(colSums(ee))*1.05))
-      box()
-      points(rep(0,length(r)),r,pch=19,cex=DD[,1]*SKLER,col="red")
-      points(colSums(ee),r,pch=19,cex=DD[,2]*SKLER,col="red")
-      mtext(paste("Released in ",Zns.leg[RL.Zns[tt]]),2,cex=1.2,line=0.5)
-      if(tt==iidd)
-      {
-        qq=MAX
-        qqq=round(rep(qq,4)*seq(.2,1,.25))
-        legend(whr,paste(qqq),bty='n',pt.cex=(qqq/qq)*SKLER,pch=19,col="red",
-               title="FL (cm)",cex=1.5)
-      }   
+      ss=as.data.frame(matrix(nrow=length(ID),ncol=ncol(MATRX)))
+      names(ss)=names(MATRX)
+      ss[,]=0
+      ss$Zone.rel=ID
+      MATRX=rbind(MATRX,ss)
+      MATRX=MATRX[order(MATRX$Zone.rel),]
     }
+    MTRX=t(MATRX[,-1])  
+    image(1:nrow(MTRX),1:ncol(MTRX),as.matrix(MTRX),col =couleurs,breaks=BREAKS,xaxt='n',yaxt='n',ylab="",xlab="")
     
-    #add zone legend
-    par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
-    plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
-    legend("top",Zns.leg[These.Leg],bty='n',pt.cex=2,pch=15,
-           col=COL.prop[These.Leg],xpd = TRUE,horiz=T,inset=c(0,0),cex=1.25)
-    
-    mtext("Days at liberty",1,line=-2,cex=1.5,outer=T)
-    
+    axis(2,1:ncol(MTRX),F,las=1)
+    axis(1,1:nrow(MTRX),F)
+    ZN.x=rev(Zns.leg)
+    ZN.x=ifelse(ZN.x=="Metro closure","Metro",ifelse(ZN.x=="Joint","JANSF",ZN.x))
+    if(what%in%c("BW", "TK")) axis(2,1:ncol(MTRX),ZN.x,las=1,cex.axis=CE)
+    #if(what%in%c("TK","WH")) axis(1,1:nrow(MTRX),ZN.x,cex.axis=CE1)
+    if(what%in%c("TK","WH")) text(1:ncol(MTRX),par("usr")[3]-0.2,ZN.x,cex=CE1,srt=45,pos=2,xpd=T,offset = OFF)
+    box()
+    mtext(SP,3)
+    lines(.5:8.5,.5:8.5,lwd=1.5,col="grey60")
   }
   
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.whiskery_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[4],SKLER=2,"F","topright",CX=1.25,iidd=4,160)
-  dev.off()
+  N.int=50
+  do.col="N"
+  colfunc <- colorRampPalette(c("navy", "cadetblue","white"))
+  if(do.col=="Y")couleurs=rev(colfunc(N.int))
+  if(do.col=="N")couleurs=rev(gray(seq(0,1,length=N.int)))
+  BREAKS=seq(0,1,length.out=N.int+1)
   
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.whiskery_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[4],SKLER=2,"M","topright",CX=1.25,iidd=4,160)
-  dev.off()
+  CeX=.8
+  CeX1=.8
   
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.dusky_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  #par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(3, .5, .1, 0),mgp=c(1,.7,0))
-  par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[1],SKLER=2,"F","bottomright",CX=1.25,iidd=2,200)
-  dev.off()
-  
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.dusky_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[1],SKLER=2,"M","bottomright",CX=1.25,iidd=4,200)
-  dev.off()
-  
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.gummy_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[3],SKLER=2,"F","bottomright",CX=1.25,iidd=2,160)
-  dev.off()
-  
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.gummy_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,1),mai=c(.1,.3,.25,.1),oma = c(4, 1, 1, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[3],SKLER=2,"M","bottomright",CX=1.25,iidd=1,160)
-  dev.off()
-  
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.sandbar_F.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(3,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 2, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[2],SKLER=3,"F","topright",CX=1.5,iidd=4,160)
-  dev.off()
-  
-  tiff(file="Paper/Prop.time.zone/Proportion.zone.sandbar_M.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(3,2),mai=c(.1,.3,.2,.1),oma = c(4, 1, 2, 1),mgp=c(1,.7,0))
-  fn.plot.prop.growth(Pop.din.sp[2],SKLER=3,"M","topright",CX=1.5,iidd=4,160)
-  dev.off()
-  
-}
-
-
-
-#Connectivity plot of overall movement
-
-#Image option
-Image.mig.fn=function(D,what,SP,CE,CE1,OFF)
-{
-  a=subset(D,Species==what)
-  if(what=="BW") a=subset(a,!Zone.rel=="West")  #remove single recapture from "WCDDLF" for dusky
-  a=a[!duplicated(a$TagCode),]
-  id=match(Zns,names(a))
-  a[,id]=a[,id]/rowSums(a[,id])
-  crap=as.data.frame(as.matrix(COL.prop))
-  names(crap)="Col"
-  crap$Zone.rel=rownames(crap)
-  a=merge(a,crap,by="Zone.rel")
-  
-  a$Sort=with(a,ifelse(Zone.rel=="Joint",7,
-            ifelse(Zone.rel=="North",6,
-            ifelse(Zone.rel=="Closed.ningaloo",5,
-            ifelse(Zone.rel=="West",4,
-            ifelse(Zone.rel=="Closed.metro",3,
-            ifelse(Zone.rel=="Zone1",2,1)))))))
-  
-  a$Zone.rel=as.character(a$Zone.rel)
-  
-  a$Zone.rel=with(a,ifelse(Zone.rel=="Closed.ningaloo","5.Ningaloo",
-    ifelse(Zone.rel=="Closed.metro","3.Metro",
-    ifelse(Zone.rel=="Zone1","2.Zn1",
-    ifelse(Zone.rel=="Zone2","1.Zn2",
-    ifelse(Zone.rel=="North","6.North",
-    ifelse(Zone.rel=="Joint","7.Joint",      
-    "4.West")))))))
-  a$Zone.rel=as.factor(a$Zone.rel)
- MATRX=aggregate(cbind(Joint,North,Closed.ningaloo,West,Closed.metro,Zone1,Zone2,SA)~Zone.rel,a,sum)
- MATRX[,2:ncol(MATRX)]=MATRX[,2:ncol(MATRX)]/rowSums(MATRX[,2:ncol(MATRX)])
- 
- colnames(MATRX)[match(c("Joint","North","Closed.ningaloo","West","Closed.metro","Zone1","Zone2","SA"),
-      colnames(MATRX))]=c("7.Joint","6.North","5.Ningaloo","4.West","3.Metro","2.Zn1","1.Zn2","1.SA")
- MATRX=MATRX[,match(c("Zone.rel","1.SA","1.Zn2","2.Zn1","3.Metro","4.West","5.Ningaloo","6.North","7.Joint"),names(MATRX))]
-  MATRX$Zone.rel=as.character(MATRX$Zone.rel)
-  
-  ALL.zns=c("1.SA","1.Zn2","2.Zn1","3.Metro","4.West","5.Ningaloo","6.North","7.Joint")
-  ID=ALL.zns[which(!ALL.zns%in%MATRX$Zone.rel)]
-  if(length(ID)>0)
-  {
-    ss=as.data.frame(matrix(nrow=length(ID),ncol=ncol(MATRX)))
-    names(ss)=names(MATRX)
-    ss[,]=0
-    ss$Zone.rel=ID
-    MATRX=rbind(MATRX,ss)
-    MATRX=MATRX[order(MATRX$Zone.rel),]
-  }
-  MTRX=t(MATRX[,-1])  
-  image(1:nrow(MTRX),1:ncol(MTRX),as.matrix(MTRX),col =couleurs,breaks=BREAKS,xaxt='n',yaxt='n',ylab="",xlab="")
-
-  axis(2,1:ncol(MTRX),F,las=1)
-  axis(1,1:nrow(MTRX),F)
-  ZN.x=rev(Zns.leg)
-  ZN.x=ifelse(ZN.x=="Metro closure","Metro",ifelse(ZN.x=="Joint","JANSF",ZN.x))
-  if(what%in%c("BW", "TK")) axis(2,1:ncol(MTRX),ZN.x,las=1,cex.axis=CE)
-  #if(what%in%c("TK","WH")) axis(1,1:nrow(MTRX),ZN.x,cex.axis=CE1)
- if(what%in%c("TK","WH")) text(1:ncol(MTRX),par("usr")[3]-0.2,ZN.x,cex=CE1,srt=45,pos=2,xpd=T,offset = OFF)
-  box()
-  mtext(SP,3)
-  lines(.5:8.5,.5:8.5,lwd=1.5,col="grey60")
-}
-
-N.int=50
-do.col="N"
-colfunc <- colorRampPalette(c("navy", "cadetblue","white"))
-if(do.col=="Y")couleurs=rev(colfunc(N.int))
-if(do.col=="N")couleurs=rev(gray(seq(0,1,length=N.int)))
-BREAKS=seq(0,1,length.out=N.int+1)
-
-CeX=.8
-CeX1=.8
-
   #1 to 30 days
-tiff(file="Paper/FigA.3_1_to_30_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
-Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
-color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
-mtext("Released",2,outer=T,line=2.5,cex=1.5)
-mtext("Recaptured",1,outer=T,line=1,cex=1.5)
-dev.off()
-
-
-#30 to 365 days
-tiff(file="Paper/FigA.3_30_to_365_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
-Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
-color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
-mtext("Released",2,outer=T,line=2.5,cex=1.5)
-mtext("Recaptured",1,outer=T,line=1,cex=1.5)
-dev.off()
-
-
-#>365 days
-tiff(file="Paper/FigA.3_more.than.365_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
-Image.mig.fn(Species.time.zone_365,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_365,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_365,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
-Image.mig.fn(Species.time.zone_365,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
-color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
-mtext("Released",2,outer=T,line=2.5,cex=1.5)
-mtext("Recaptured",1,outer=T,line=1,cex=1.5)
-dev.off()
-
-
-
-#4.2. Exploratory histograms and boxplots
-function.explore=function(SPECIES,Species.names)
-{
-  datos=subset(Tagging,Species==SPECIES)
-  AREAS=unique(datos$Areas)
-
-  #.. sex and size of released tagged sharks
-  tiff(file=paste(Species.names,".Sex&Size.released.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    HISTO=table(datos1$Sex,floor(datos1$Rel_FL/10)) #create histogram
-    barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
-	      names.arg= as.numeric(colnames(HISTO))*10,xlab="fork length (cm)",ylab="Frequency", 
-        xpd=F,axis.lty=1, axes=T,col=rev(gray(1:nrow(HISTO)/nrow(HISTO))),cex.names=1.1,las=1,cex=1.1)
-    box()
-    legend("topleft",AREAS[i],bty="n")
-    legend("topright",rownames(HISTO),fill=rev(gray(1:nrow(HISTO)/nrow(HISTO))),yjust=0, horiz=F,bty="n",cex=1.1)
-    boxplot(datos1$Rel_FL~datos1$Sex, col = "lightgray",add = F,ylab="fork length (cm)",xlab="sex")
-  }
-  dev.off()
-
-    #.. time at large
-  tiff(file=paste(Species.names,".Time.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    boxplot(datos1$DaysAtLarge, xlab= "Time at liberty (days)")
-    legend("topleft",AREAS[i],bty="n")
-    hist(datos1$DaysAtLarge,breaks=50, xlab= "Time at liberty (days)", main="")
-    box()
-  }
-  dev.off()
-
-    #.. distance moved
-  tiff(file=paste(Species.names,".Distance.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    boxplot(datos1$dist.trav_m/1000, xlab= "distance moved (km)")
-    legend("topleft",AREAS[i],bty="n")
-    hist(datos1$dist.trav_m/1000,breaks=50, xlab= "distance moved (km)", main="")
-    box()
-  }
-  dev.off()
-    
-   #.. distance vs time at large
-  tiff(file=paste(Species.names,".Distance VS Time.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(length(AREAS),1),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    plot(log(datos1$DaysAtLarge),log(datos1$dist.trav_m/1000), xlab= "ln(time at liberty (days))",ylab= "ln(distanced moved (km))")
-    legend("topleft",AREAS[i],bty="n")
-  }
-  dev.off()
-
-#     #.. speed
-#   tiff(file=paste(Species.names,".Speed.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-#      compression = "lzw")
-#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-#   for(i in 1:length(AREAS))
-#   {
-#     datos1=subset(datos,Areas==AREAS[i])
-#     boxplot(datos1$speed, xlab= "speed (m/s)")
-#     legend("topleft",AREAS[i],bty="n")
-#     hist(datos1$speed,breaks=50, xlab= "speed (m/s)", main="")
-#     box()
-#   }
-#   dev.off()
-
-    #.. bearing
-  tiff(file=paste(Species.names,".Bearing.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(1,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    rose.diag(circular(datos1$bearing,units="degrees"), bins = 16, main = '')
-    legend("topleft",AREAS[i],bty="n")
-  }
-  dev.off()
-
-    #.. condition effect on distance moved and time at large
-        #boxplots
-  tiff(file=paste(Species.names,".Cond_on_Dist&Time.boxplot.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    boxplot(datos1$DaysAtLarge~datos1$CONDITION, xlab="condition",ylab= "Time at liberty (days)")
-    legend("topleft",AREAS[i],bty="n")
-    boxplot(datos1$dist.trav_m/1000~datos1$CONDITION, xlab="condition",ylab= "distance moved (km)")
-  #  boxplot(datos1$speed~datos1$CONDITION, xlab="condition",ylab= "speed (m/s)")
-  }
+  tiff(file="Paper/FigA.3_1_to_30_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
+  Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_1_30,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
+  color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
+  mtext("Released",2,outer=T,line=2.5,cex=1.5)
+  mtext("Recaptured",1,outer=T,line=1,cex=1.5)
   dev.off()
   
-        #histograms
-  tiff(file=paste(Species.names,".Cond_on_Dist&Time.hist.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
-     compression = "lzw")
-  par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
-  for(i in 1:length(AREAS))
-  {
-    datos1=subset(datos,Areas==AREAS[i])
-    HISTO=table(datos1$CONDITION,floor(datos1$DaysAtLarge/10)) #create histogram
-    #COLORES=rev(gray(1:nrow(HISTO)/nrow(HISTO)))
-    COLORES=c(2,3,4,"violet")
-    barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
-        names.arg= as.numeric(colnames(HISTO))*10,xlab=" Time at liberty (days)",ylab="Frequency", 
-        xpd=F,axis.lty=1, axes=T,col=COLORES,cex.names=1.1,las=1,cex=1.1)
-    box()
-    legend("topleft",AREAS[i],bty="n")
-    legend("topright",rownames(HISTO),fill=COLORES,yjust=0, horiz=F,bty="n",cex=1.1)
   
-    HISTO=table(datos1$CONDITION,floor((datos1$dist.trav_m/1000)/100)) #create histogram
-    barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
-        names.arg= as.numeric(colnames(HISTO))*100,xlab=" distance moved (km)",ylab="Frequency", 
-        xpd=F,axis.lty=1, axes=T,col=COLORES,cex.names=1.1,las=1,cex=1.1)
-    box()
-  }
+  #30 to 365 days
+  tiff(file="Paper/FigA.3_30_to_365_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
+  Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_30_365,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
+  color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
+  mtext("Released",2,outer=T,line=2.5,cex=1.5)
+  mtext("Recaptured",1,outer=T,line=1,cex=1.5)
   dev.off()
+  
+  
+  #>365 days
+  tiff(file="Paper/FigA.3_more.than.365_days.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(2,2),mar = c(2.75, 1, 1, 1),oma=c(3,4,0,0),xpd=T,mgp=c(1,.7,0))
+  Image.mig.fn(Species.time.zone_365,Pop.din.sp[1],"Dusky shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_365,Pop.din.sp[2],"Sandbar shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_365,Pop.din.sp[3],"Gummy shark",CeX,CeX1,0.175)
+  Image.mig.fn(Species.time.zone_365,Pop.din.sp[4],"Whiskery shark",CeX,CeX1,0.175)
+  color.legend(8.5,1,9,8,BREAKS[seq(1,length(BREAKS),5)],rect.col=couleurs,gradient="y",col=1,cex=0.7)
+  mtext("Released",2,outer=T,line=2.5,cex=1.5)
+  mtext("Recaptured",1,outer=T,line=1,cex=1.5)
+  dev.off()
+  
+  
 }
-
-
-
+  
 #4.3. Summary statistics
-function.stats=function(SPEC,Species.names)
+function.stats=function(SPEC)
 {
   datos=subset(Tagging,Species==SPEC)
   AREAS=unique(datos$Areas)
@@ -2264,7 +2237,7 @@ function.stats=function(SPEC,Species.names)
     Bearing.summary[[AREAS[i]]]=summary(datos1$bearing)
 
     #.. condition effect on distance moved and time at large
-     aa=levels(datos1$CONDITION)
+     aa=sort(unique(datos1$CONDITION))
      Stats.all=list()
      for(j in 1:length(aa))
      {
@@ -2282,13 +2255,11 @@ STATS=vector('list',length(SPECIES))
 names(STATS)=Species.names
 for(s in 1:length(SPECIES))
 {
-  STATS[[s]]=function.stats(SPECIES[s],Species.names[s])
+  STATS[[s]]=function.stats(SPEC=SPECIES[s])
 }
 
 
-
 #4.4 Minimum time step for modelling movement rates
-
   #time spent at zones
 fn.time.zone=function(dat)
 {
@@ -2334,87 +2305,53 @@ Numb.Sp.recaptured=table(Tagging$Species)
 Rec.shks.rays=unique(Tagging$Species)
 fun.whatever=function(SPEC)
 {
-  Dat=subset(Tagging,Species==SPEC)
-  range.dist.km=round(range(Dat$dist.trav_m,na.rm=T)/1000,2)
-  range.days=range(Dat$DaysAtLarge,na.rm=T)
-  max.speed.km.h=round(max(Dat$speed,na.rm=T)*3.6,3)
-  return(list(range.dist.km=range.dist.km,range.days=range.days,max.speed.km.h=max.speed.km.h))
+  Dat=Tagging%>%
+    filter(Species==SPEC)%>%
+    mutate(dist.km=dist.trav_m/1000)
+  
+  dist.km=Dat%>%
+    filter(!is.na(dist.km))%>%
+    summarise(dist.Median=median(dist.km),
+              dist.Up.95=quantile(dist.km,probs=0.975),
+              dist.Max=max(dist.km))%>%
+    mutate_all(funs(round(.)))
+  
+  Days=Dat%>%
+    filter(!is.na(DaysAtLarge))%>%
+    summarise(days.Median=median(DaysAtLarge),
+              days.Up.95=quantile(DaysAtLarge,probs=0.975),
+              days.Max=max(DaysAtLarge))%>%
+    mutate_all(funs(round(.)))
+  
+  ROM=Dat%>%
+    filter(!is.na(ROM))%>%
+    summarise(ROM.Median=median(ROM),
+              ROM.Up.95=quantile(ROM,probs=0.975),
+              ROM.Max=max(ROM))%>%
+    mutate_all(funs(round(.,3)))
+  
+  #max.speed.km.h=round(max(Dat$speed,na.rm=T)*3.6,3)
+  
+  prop.more.100=round(nrow(Dat%>%filter(dist.trav_m>=100000))/nrow(Dat),2)
+  prop.more.500=round(nrow(Dat%>%filter(dist.trav_m>=500000))/nrow(Dat),2)
+  dd=cbind(Species=Dat$COMMON_NAME[1],dist.km,Days,ROM,N=nrow(Dat),
+           Prop.more.100=prop.more.100,Prop.more.500=prop.more.500)
+  
+  return(dd)
 }
-
 STORE.table1=vector('list',length=length(Rec.shks.rays))
 names(STORE.table1)=Rec.shks.rays
-for (i in 1:length(Rec.shks.rays)) STORE.table1[[i]]=fun.whatever(Rec.shks.rays[i])
-
-RANGE.Dis=RANGE.Day=matrix(NA,length(Rec.shks.rays),2)
-MAX.speed=rep(NA,length(Rec.shks.rays))
-rownames(RANGE.Dis)=rownames(RANGE.Day)=Rec.shks.rays
-colnames(RANGE.Dis)=colnames(RANGE.Day)=c("Min","Max")
-names(MAX.speed)=Rec.shks.rays
-for (i in 1:length(Rec.shks.rays))
-{
-  RANGE.Dis[i,]=STORE.table1[[i]]$range.dist.km
-  RANGE.Day[i,]=STORE.table1[[i]]$range.days
-  MAX.speed[i]=STORE.table1[[i]]$max.speed.km.h    
-}
-
-Combined=cbind(RANGE.Dis,RANGE.Day,MAX.speed)
-colnames(Combined)=c("Min.dist","Max.dist","Min.days","Max.days","MAX.speed")
+for (i in 1:length(Rec.shks.rays)) STORE.table1[[i]]=fun.whatever(SPEC=Rec.shks.rays[i])
+Combined=do.call(rbind,STORE.table1)%>%
+            arrange(-N)
+rownames(Combined)=NULL
+write.csv(Numb.Sp.released,file="Table_Numb.Sp.released.csv",row.names=F)
+write.csv(Numb.Sp.recaptured,file="Table_Numb.Sp.recaptured.csv",row.names=F)
+write.csv(Combined,file="Paper/Table2_Dist.day.rom.csv",row.names=T) 
+tab_df(Combined,file="Paper/Table2_Dist.day.rom.doc")
 
 
-setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
-write.csv(Numb.Sp.released,file="Table2.Numb.Sp.released.csv",row.names=F)
-write.csv(Numb.Sp.recaptured,file="Table2.Numb.Sp.recaptured.csv",row.names=F)
-write.csv(Combined,file="Table1.speed.dist.day.csv",row.names=T)
-
-
-
-#5.1 Table 2. Summary of tags and recaptures
-
-General.numbers=function(SPECIES)
-{
-  datos=subset(All.rel.Tagging,Species==SPECIES)
-  datos1=subset(Tagging,Species==SPECIES)
-  
-  n.rel=sum(!is.na(datos$Lat.rels))
-  n.rec=sum(!is.na(datos$Lat.rec))
-  n.rec1=sum(!is.na(datos1$Lat.rec))
-  return(cbind(n.rel=n.rel,n.rec=n.rec,n.rec.used=n.rec1))
-  
-}
-  
-# columns: SPECIES, YEAR OF TAGGING, NUMBER TAGGED (males in brackets) by year of recaptured, 
-#NUMBER RECAPTURED (males in brackets) by year of recaptured, final row with proportion recapture by year
-Table1=function(SPECIES)
-{
-  datos=subset(All.rel.Tagging,Species==SPECIES)
-  datos1=subset(Tagging,Species==SPECIES)
-  datos1=subset(datos1,!is.na(Yr.rec))
-  theseyears=sort(unique(datos$Yr.rel))
-  recyears=sort(unique(datos1$Yr.rec))
-  TABLE=list()
-  for (i in 1:length(theseyears))
-  {
-    datos2=subset(datos,Yr.rel==theseyears[i])
-    datos3=subset(datos1,Yr.rel==theseyears[i])
-#     n.tagged=table(datos1$Sex,useNA='ifany')
-#     n.females=n.tagged[match("F",names(n.tagged))]
-#     n.males=n.tagged[match("M",names(n.tagged))]
-#     n=n.females+n.males
-    n=sum(!is.na(datos2$Lat.rels))
-    n.yrs.rec=table(datos3$Yr.rec,useNA='ifany')
-    recaptures=as.matrix(t(n.yrs.rec))
-    yrs=colnames(recaptures)
-    if(length(yrs)>0) colnames(recaptures)=paste("rec.",yrs,sep="")
-    TABLE[[i]]=cbind("Year of tagging"=theseyears[i],"No. shark tagged"=n,recaptures)
-  }
-  return(TABLE)
-}
-
-
-
-#5.4 Figure 3. Overall distribution of displacement and time at liberty
-  #total displacement distribution
-
+# Observed distribution of displacement, ROM and time at liberty
 General.dist.displace=function(SPEC,maxDis)
 {
   datos=subset(Tagging,Species==SPEC)
@@ -2426,9 +2363,6 @@ General.dist.displace=function(SPEC,maxDis)
 #  legend("topright",paste(Species.names," (n=",nrow(datos),")",sep=""),bty="n",cex=1.5)   
 
 }
-
-
-  #time at liberty distribution
 General.dist.time=function(SPEC)
 {
   datos=subset(Tagging,Species==SPEC)
@@ -2436,8 +2370,6 @@ General.dist.time=function(SPEC)
        xlim=c(0,breaks[length(breaks)]),xaxt="n",cex.axis=1.5)
   box()
 }
-
-  #ROM
 General.speed=function(SPEC,Species.nm)
 {
   datos=subset(Tagging,Species==SPEC)
@@ -2446,37 +2378,11 @@ General.speed=function(SPEC,Species.nm)
   box()
   legend("topright",Species.nm,bty="n",cex=1.75)
 }
-
-#density of displacement
 General.dens.dis=function(SPECIES,LTY,COL)
 {
   datos=subset(Tagging,Species==SPECIES)
   lines(density(datos$dist.trav_m/1000,na.rm=T),lty=LTY,col=COL,lwd=2)
 }
-
-
-
-
-#list of stats
-General.dist.stats=function(SPEC)
-{
-  datos=subset(Tagging,Species==SPEC)
-  stats.days=c(n=nrow(datos),summary(datos$DaysAtLarge,na.rm=T),
-               quantile(datos$DaysAtLarge,probs=0.95,na.rm=T))
-  stats.dist=c(n=nrow(datos),summary(datos$dist.trav_m/1000,na.rm=T),
-               quantile(datos$dist.trav_m/1000,probs=0.95,na.rm=T))
-  stats.ROM=c(n=nrow(datos),summary(datos$ROM,na.rm=T),
-               quantile(datos$ROM,probs=0.95,na.rm=T))
-  
-  StaTs=as.data.frame(rbind(stats.days,stats.dist,stats.ROM))
-  StaTs$Species=SPEC
-  StaTs$Quantity=c("Days","Displacement","ROM")
-  return(StaTs)
-}
-
-
-
-#some graphying pars
 linetype=c(1:length(SPECIES))
 linecol=linetype
 maxDis=max(Tagging$dist.trav_m/1000,na.rm=T)
@@ -2487,12 +2393,9 @@ maxY=c(0.0375,0.125,.075,.075)
 maxLeng=280
 BIN=20
 BIN.dist=100
-
-tiff(file="Paper/Figure3.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+tiff(file="Paper/Observed_distribution_Dist.Days.ROM.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
 par(mfcol=c(length(SPECIES),3),oma=c(3.5,3.85,1.5,.5),mar=c(1,1,1,3),mgp=c(1, 0.75, 0),xpd=NA,las=2)
-
-
-#distance travelled
+  #distance travelled
 breaks <- pretty(range(Tagging$dist.trav_m/1000,na.rm=T), 20)
 for(i in 1:length(SPECIES)) 
 {
@@ -2503,10 +2406,7 @@ for(i in 1:length(SPECIES))
 }
 axis(1,at=c(seq(breaks[1],breaks[length(breaks)],400)),labels=c(seq(breaks[1],breaks[length(breaks)],400))
      ,cex.axis=1.5,las=1,tck=-0.05)
-
-
-
-  #days at liberty
+    #days at liberty
 breaks <- pretty(range(Tagging$DaysAtLarge,na.rm=T), 20)
 for(i in 1:length(SPECIES)) 
 {
@@ -2517,9 +2417,7 @@ for(i in 1:length(SPECIES))
 }
 axis(1,at=c(seq(breaks[1],breaks[length(breaks)],1000)),labels=c(seq(breaks[1],
                breaks[length(breaks)],1000)),cex.axis=1.5,las=1,tck=-0.05)
-
-
-  #speed
+    #ROM
 breaks <- pretty(range(Tagging$ROM,na.rm=T), 20)
 for(i in 1:length(SPECIES)) 
 {
@@ -2529,67 +2427,12 @@ for(i in 1:length(SPECIES))
   if(i==4)mtext("ROM (km/d)",side=1,outer=F,line=2.5,font=1,las=0,cex=1.5)
 }
 axis(1,at=breaks[c(1,6,11,16,21)],labels=breaks[c(1,6,11,16,21)],cex.axis=1.5,las=1,tck=-0.05)
-
 mtext("Frequency",side=2,outer=T,line=2.1,font=1,las=0,cex=1.75)
 dev.off()
 
 
-#Stats
-STATS=list()
-for(i in 1:length(SPECIES)) 
-{
-  STATS[[Species.names[i]]]=General.dist.stats(SPECIES[i])
-}
-write.csv(do.call(rbind,STATS),"Paper/stats.csv",row.names=F)
 
-#Other Species
-#list of stats
-Other.Species=unique(Tagging$Species)
-Other.Species=Other.Species[-match(SPECIES,Other.Species)]
-NN=rep(NA,length(Other.Species))
-Summary.Movement.other=data.frame(Species=Other.Species,Median.Disp=NN,Min.Disp=NN,Max.Disp=NN,
-    Median.Time.lib=NN,Min.Time.lib=NN,Max.Time.lib=NN,Median.ROM=NN,Min.ROM=NN,Max.ROM=NN,N=NN)
-for(i in 1:length(Other.Species))
-{
-  datos=subset(Tagging,Species==Other.Species[i])
-  Summary.Movement.other$Median.Disp[i]=round(median(datos$dist.trav_m/1000,na.rm=T))
-  Summary.Movement.other$Min.Disp[i]=round(min(datos$dist.trav_m/1000,na.rm=T))
-  Summary.Movement.other$Max.Disp[i]=round(max(datos$dist.trav_m/1000,na.rm=T))
-  
-  Summary.Movement.other$Median.Time.lib[i]=median(datos$DaysAtLarge,na.rm=T)
-  Summary.Movement.other$Min.Time.lib[i]=min(datos$DaysAtLarge,na.rm=T)
-  Summary.Movement.other$Max.Time.lib[i]=max(datos$DaysAtLarge,na.rm=T)
-  
-  Summary.Movement.other$Median.ROM[i]=round(median(datos$ROM,na.rm=T),2)
-  Summary.Movement.other$Min.ROM[i]=round(min(datos$ROM,na.rm=T),2)
-  Summary.Movement.other$Max.ROM[i]=round(max(datos$ROM,na.rm=T),2)
-  
-  Summary.Movement.other$N[i]=nrow(datos)
-
-
-  
-}
-
-Summary.Movement.other=Summary.Movement.other[order(-Summary.Movement.other$Max.Disp),]
-ALL.Spec.names=Tagging[!duplicated(Tagging$Species),match(c("Species","COMMON_NAME"),names(Tagging))]
-
-Summary.Movement.other=merge(Summary.Movement.other,ALL.Spec.names,"Species",all.x=T)
-Summary.Movement.other$Range.Disp=with(Summary.Movement.other,paste(Min.Disp,"-",Max.Disp,sep=""))
-Summary.Movement.other$Range.Time.lib=with(Summary.Movement.other,paste(Min.Time.lib,"-",Max.Time.lib,sep=""))
-Summary.Movement.other$Range.ROM=with(Summary.Movement.other,paste(Min.ROM,"-",Max.ROM,sep=""))
-
-THISCol=match(c("Species","COMMON_NAME","Median.Disp","Range.Disp","Median.Time.lib",
-                "Range.Time.lib","Median.ROM","Range.ROM","N"),names(Summary.Movement.other))
-This.sp=match(c("PZ","WK"),Summary.Movement.other$Species)
-dummy=Summary.Movement.other[-This.sp,THISCol]
-dummy=dummy[order(-dummy$N),]
-write.csv(dummy,"Paper/Table A3.csv",row.names=F)
-
-
-
-
-#5.5 Figure 6. Overall distribution of bearing by area
-#bearing by area distribution
+# Observed bearing distribution by area
 rose1 <- function (frec, fnum = 4, fint = 5, flab = 2, ang = 3 * pi/16,               
                    col = rainbow(10, 0.5, 0.92, start = 0.33, end = 0.2),
                    margen = c(0,0, .75, 0), key = TRUE, uni = "m/s", plotnew=F, ...) 
@@ -2654,7 +2497,6 @@ rose1 <- function (frec, fnum = 4, fint = 5, flab = 2, ang = 3 * pi/16,
   }
   invisible()
 }
-
 Rosa.vent.bearing1=function(AREAS,FNUM,FINT,Fig6.areas)
 {
   datos=subset(Tagging,Areas%in%AREAS)
@@ -2690,201 +2532,271 @@ Rosa.vent.bearing1=function(AREAS,FNUM,FINT,Fig6.areas)
           uni="",flab=F,col=rosa.colors)
   }
 }
-
-
-#Figure 6.
 CLO=c("black","grey95","grey50","grey75")
 names(CLO)=c("TK","BW","GM","WH")
-
-AREAS.bearing=list("closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2")
+AREAS.bearing=list("Closed","WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2")
 BEARINGS=c(0,seq(0+(22.5/2),360-(22.5/2),by=360/16),360)
 names.Bear.coord=c("N","NNE","NE","ENE","E","ESE","SE","SSE", "S","SSW","SW","WSW","W","WNW","NW","NNW")
 Label.areas=list("Closed Area","WCDGDLF","Zone1 JASDGDLF","Zone2 JASDGDLF")
 Fnum=c(5,6,6,6)
 Fint=c(4,3.7,3.7,3.7)
 rosa.colors=CLO
-
 tiff(file="Paper/Figure6.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
 par(mfcol=c(2,2),oma=c(.1,.1,.1,.1),mar=c(.1,.1,.1,.2),mgp=c(1, 0.75, 0),xpd=NA,las=2)
 for(x in 1:length(AREAS.bearing))  Rosa.vent.bearing1(AREAS.bearing[[x]],Fnum[x],Fint[x],Label.areas[[x]])
-
 par(fig=c(.325,.625,.35,.65), new = T,mgp=c(.1,.4,0))
 plot(1:10,1:10,bty='n',pch='',xaxt='n',yaxt='n',ann=F)
 legend("center",Species.names,fill=rosa.colors,bty='n',cex=1.5)
-
 dev.off()
 
-# Rosa.vent.bearing=function(SPECIES,FNUM,FINT,Species.names)
-# {
-#   datos=subset(Tagging,Species==SPECIES)
-#   unicasAreas2=unique(datos$Areas)
-#   unicas.areas=unicasAreas2[match(c("JASDGDLF.zone2","JASDGDLF.zone1","WCDGDLF","closed",
-#                                     "WANCSF"),unicasAreas2)]   #order areas
-#   unicas.areas=unicas.areas[!is.na(unicas.areas)]
-#   unicasLetras=LetrasAreas[match(unicas.areas,names(LetrasAreas))]
-#   
-#   NN=length(unicas.areas)
-#   Bear.coord=as.data.frame(matrix(NA,nrow=NN,ncol=16))
-#   colnames(Bear.coord)=names.Bear.coord
-#   rownames(Bear.coord)=unicasLetras
-#   for (i in 1:NN)
-#   {
-#     datos2=subset(datos,Areas==unicas.areas[i])
-#     a=hist(datos2$bearing,plot=F,breaks=BEARINGS)
-#     shifted=a$counts
-#     add=shifted[1]+shifted[length(shifted)]
-#     shifted=c(add,shifted[-c(1,length(shifted))])
-#     Bear.coord[i,]=shifted
-#   }  
-#   if(SPECIES=="TK")
-#   {
-#     #rosavent(Bear.coord, FNUM,FINT, ang=-3*pi/16, main=Species.names,key =T,uni="",flab=F
-#     #         ,col=rosa.colors)    
-#     rose1(Bear.coord, FNUM,FINT, ang=-3*pi/16, main=Species.names,key =T,uni="",flab=F
-#              ,col=rosa.colors)
-#   }else
-#   {
-#     #rosavent(Bear.coord, FNUM,FINT, ang=-3*pi/16, main=Species.names,key = F,uni="",flab=F
-#     #         ,col=rosa.colors)
-#     rose1(Bear.coord, FNUM,FINT, ang=-3*pi/16, main=Species.names,key = F,uni="",flab=F
-#              ,col=rosa.colors)
-#   }
-#   
-# }
-
-# #note: added 90 to have North on top (otherwise North is 0)
-# General.dist.bearing=function(SPECIES,AREAS,BINS,Species.names)
-# {
-#   datos=subset(Tagging,Species==SPECIES & Areas==AREAS)
-#   rose.diag(circular(datos$bearing+90,units="degrees"), bins = BINS, main = '',col="gray",axes=FALSE,ticks=FALSE,lwd=1.5)
-#   axis.circular(at=circular(seq(0,315,45),units="degrees"), labels=c("E","NE","N","NW","W","SW","S","SE"),cex=1.25,tcl=0.05, tcl.text=0.15)
-#   #if(AREAS=="closed") legend(-2.5,1.17,Species.names,bty="n",cex=1.5)
-#   #if(AREAS=="closed") legend(-2.5,.8,paste("(n=",nrow(datos),")",sep=""),bty="n",cex=1.5)
-#   if(SPECIES=="GM") legend(-0.9,-1.15,AREAS,bty="n",cex=1.25)
-# }
 
 
-
-
-#6. MOVEMENT DESCRIPTORS
-
-#6.1 Figure 4. Root mean squared displacement vs time lag
-
-#Calculate weighted mean squared displacement and root mean squared displacement (Whitehead et al 2008)
-
-#Jackkife SE
-MSD.fn=function(SPECIES)
+# Root mean squared displacement vs time lag
+do.rmsd=FALSE
+if(do.rmsd)
 {
-  datos=subset(Tagging,Species==SPECIES)
+  #Calculate weighted mean squared displacement and root mean squared displacement (Whitehead et al 2008)
   
-  #calculate quantities
-  RMSD=SE.RMSD=NULL
-  for(i in 1:length(LAG))
+  #Jackkife SE
+  MSD.fn=function(SPECIES)
   {
-    xdata=subset(datos,DaysAtLarge>=LAG[i])    
-    n <- nrow(xdata)
-    id=match("speed",names(xdata))
+    datos=subset(Tagging,Species==SPECIES)
     
-    theta <- function(x,xdata)
-    { 
-      displacement=LAG[i]*60*60*24*xdata[x,id]/1000 #(in km)
-      squared.dis=displacement^2
-      #WEIGHT=datos2$WEIGHT    #weight by effort
-      #WEIGHT=datos2$DaysAtLarge #weight by days at large
-      #mean.squared.dis=weighted.mean(squared.dis,WEIGHT, na.rm = T)
-      mean.squared.dis=mean(squared.dis,na.rm = T)
-      root.mean.squared.dis=(mean.squared.dis)^0.5
-      return(root.mean.squared.dis)
+    #calculate quantities
+    RMSD=SE.RMSD=NULL
+    for(i in 1:length(LAG))
+    {
+      xdata=subset(datos,DaysAtLarge>=LAG[i])    
+      n <- nrow(xdata)
+      id=match("speed",names(xdata))
+      
+      theta <- function(x,xdata)
+      { 
+        displacement=LAG[i]*60*60*24*xdata[x,id]/1000 #(in km)
+        squared.dis=displacement^2
+        #WEIGHT=datos2$WEIGHT    #weight by effort
+        #WEIGHT=datos2$DaysAtLarge #weight by days at large
+        #mean.squared.dis=weighted.mean(squared.dis,WEIGHT, na.rm = T)
+        mean.squared.dis=mean(squared.dis,na.rm = T)
+        root.mean.squared.dis=(mean.squared.dis)^0.5
+        return(root.mean.squared.dis)
+      }
+      results <- jackknife(1:n,theta,xdata)
+      SE=results$jack.se
+      Mean=mean(results$jack.values)  
+      
+      SE.RMSD=cbind(SE.RMSD,SE)
+      RMSD=cbind(RMSD,Mean)
     }
-    results <- jackknife(1:n,theta,xdata)
-    SE=results$jack.se
-    Mean=mean(results$jack.values)  
-    
-    SE.RMSD=cbind(SE.RMSD,SE)
-    RMSD=cbind(RMSD,Mean)
+    return(list(mean=RMSD,se=SE.RMSD))
   }
-  return(list(mean=RMSD,se=SE.RMSD))
-}
+  
+  #Bootstrapping SE
+  # MSD.fn=function(SPECIES)
+  #   {
+  #     datos=subset(Tagging,Species==SPECIES)
+  #     
+  #     #calculate quantities
+  #     RMSD=N=NULL
+  #     for(i in 1:length(LAG))
+  #     {
+  #       datos1=subset(datos,DaysAtLarge>=LAG[i])
+  #       Summary.boot=NULL
+  #       for(j in 1:nboot)
+  #       {
+  #         datos2=datos1[sample(1:nrow(datos1), nrow(datos1), replace = TRUE),] #random sample with replacement
+  # 
+  #         displacement=LAG[i]*60*60*24*datos2$speed/1000 #(in km)
+  #         squared.dis=displacement^2
+  #         #WEIGHT=datos2$WEIGHT    #weight by effort
+  #         #WEIGHT=datos2$DaysAtLarge #weight by days at large
+  #         #mean.squared.dis=weighted.mean(squared.dis,WEIGHT, na.rm = T)
+  #         mean.squared.dis=mean(squared.dis,na.rm = T)
+  #         root.mean.squared.dis=(mean.squared.dis)^0.5
+  #         Summary.boot=rbind(Summary.boot,root.mean.squared.dis)
+  #       }
+  #       N=cbind(N,nrow(datos1))
+  #       RMSD=cbind(RMSD,Summary.boot)
+  #     }
+  #     MEAN=apply(RMSD,2,mean)
+  #     SD=apply(RMSD,2,sd)
+  #     SE=SD/(N)^.5
+  #     low.CI=apply(RMSD,2,function(x){quantile(x,prob=.025)})
+  #     up.CI=apply(RMSD,2,function(x){quantile(x,prob=.975)})
+  #     
+  #     return(list(mean=MEAN,se=SD,low.CI=low.CI,up.CI=up.CI))
+  #   }
+  
+  
+  #5. MOVEMENT DESCRIPTORS
+  
+  #5.1 Figure 4.
+  col.species=rep(1,4)
+  #col.species=c("grey50","black","grey30","grey50")
+  pch.species=rep(21,4)
+  bg.species=rosa.colors
+  LAG=c(1,7,30,182.5,365,730,1095) #time lags (in days) 
+  Time.Lag.legends=c("1 d","1 wk","1 mo","6 mo","1 yr","2 yr","3 yr")
+  
+  nboot=1000    #number of bootstraps
+  dummy.MEAN=c(3,12,44,173,200,350,500)
+  MAX.Y=1000
+  tiff(file="Root mean squared displacement.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(1,1),oma=c(2,2.5,.1,.1),mar=c(2,2,.1,.1),las=2,mgp=c(2.5, 1, 0),xpd=T)
+  plot(log(LAG),MSD.fn(SPECIES[1])$mean,type='p',ylab="",xlab="", yaxt='n',xaxt='n',cex.lab=1.5,
+       col='transparent',ylim=c(0,MAX.Y))
+  for (i in 1:length(SPECIES))
+  {
+    MEAN=MSD.fn(SPECIES[i])$mean
+    SE=MSD.fn(SPECIES[i])$se
+    #UP=MSD.fn(SPECIES[i])$up.CI
+    #LOW=MSD.fn(SPECIES[i])$low.CI
+    points(log(LAG),MEAN,pch=pch.species[i],col=col.species[i],cex=2,bg=bg.species[i])
+    arrows(log(LAG),MEAN+SE, log(LAG), MEAN-SE, angle=90, code=3,length=.05,
+           col=col.species[i],lwd=2)
+    #    arrows(log(LAG),LOW, log(LAG), UP, angle=90, code=3,length=.05,
+    #      col=col.species[i],lwd=2)
+  }
+  axis(side = 1, at = log(LAG), labels = Time.Lag.legends,tck=-0.02,las=1,cex.axis=1.2)
+  axis(side = 2, at =seq(0,MAX.Y,100), labels = seq(0,MAX.Y,100),tck=-0.02,las=1,cex.axis=1.2)
+  legend("topleft",Species.names,bty="n",cex=1.5,col=col.species,pch=pch.species,pt.bg=bg.species)
+  mtext("RMS displacement (km)",side=2,outer=T,line=1.25,font=1,las=0,cex=1.75)
+  mtext("Time lag (log scale)",side=1,outer=T,line=0.5,font=1,las=0,cex=1.75)
+  text(7.07,-87,"3 yr",cex=1.21)
+  dev.off()
+}  
 
-#Bootstrapping SE
-# MSD.fn=function(SPECIES)
-#   {
-#     datos=subset(Tagging,Species==SPECIES)
-#     
-#     #calculate quantities
-#     RMSD=N=NULL
-#     for(i in 1:length(LAG))
-#     {
-#       datos1=subset(datos,DaysAtLarge>=LAG[i])
-#       Summary.boot=NULL
-#       for(j in 1:nboot)
-#       {
-#         datos2=datos1[sample(1:nrow(datos1), nrow(datos1), replace = TRUE),] #random sample with replacement
-# 
-#         displacement=LAG[i]*60*60*24*datos2$speed/1000 #(in km)
-#         squared.dis=displacement^2
-#         #WEIGHT=datos2$WEIGHT    #weight by effort
-#         #WEIGHT=datos2$DaysAtLarge #weight by days at large
-#         #mean.squared.dis=weighted.mean(squared.dis,WEIGHT, na.rm = T)
-#         mean.squared.dis=mean(squared.dis,na.rm = T)
-#         root.mean.squared.dis=(mean.squared.dis)^0.5
-#         Summary.boot=rbind(Summary.boot,root.mean.squared.dis)
-#       }
-#       N=cbind(N,nrow(datos1))
-#       RMSD=cbind(RMSD,Summary.boot)
-#     }
-#     MEAN=apply(RMSD,2,mean)
-#     SD=apply(RMSD,2,sd)
-#     SE=SD/(N)^.5
-#     low.CI=apply(RMSD,2,function(x){quantile(x,prob=.025)})
-#     up.CI=apply(RMSD,2,function(x){quantile(x,prob=.975)})
-#     
-#     return(list(mean=MEAN,se=SD,low.CI=low.CI,up.CI=up.CI))
-#   }
 
 
-#5. MOVEMENT DESCRIPTORS
+# LINEAR MODELLING FOR MOVEMENT PATTERN PAPER
 
-#5.1 Figure 4.
-col.species=rep(1,4)
-#col.species=c("grey50","black","grey30","grey50")
-pch.species=rep(21,4)
-bg.species=rosa.colors
-LAG=c(1,7,30,182.5,365,730,1095) #time lags (in days) 
-Time.Lag.legends=c("1 d","1 wk","1 mo","6 mo","1 yr","2 yr","3 yr")
 
-nboot=1000    #number of bootstraps
-dummy.MEAN=c(3,12,44,173,200,350,500)
-MAX.Y=1000
-tiff(file="Paper/Figure4.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(1,1),oma=c(2,2.5,.1,.1),mar=c(2,2,.1,.1),las=2,mgp=c(2.5, 1, 0),xpd=T)
-plot(log(LAG),MSD.fn(SPECIES[1])$mean,type='p',ylab="",xlab="", yaxt='n',xaxt='n',cex.lab=1.5,
-     col='transparent',ylim=c(0,MAX.Y))
-for (i in 1:length(SPECIES))
+#Explore
+library(ggpubr)
+fun.explr=function(d,bin)
 {
-  MEAN=MSD.fn(SPECIES[i])$mean
-  SE=MSD.fn(SPECIES[i])$se
-  #UP=MSD.fn(SPECIES[i])$up.CI
-  #LOW=MSD.fn(SPECIES[i])$low.CI
-  points(log(LAG),MEAN,pch=pch.species[i],col=col.species[i],cex=2,bg=bg.species[i])
-  arrows(log(LAG),MEAN+SE, log(LAG), MEAN-SE, angle=90, code=3,length=.05,
-         col=col.species[i],lwd=2)
-  #    arrows(log(LAG),LOW, log(LAG), UP, angle=90, code=3,length=.05,
-  #      col=col.species[i],lwd=2)
+  d=d%>%
+    mutate(dist.km=dist.trav_m/1000,
+           dist.km.1.yr=dist.trav_m_in.1.year/1000,
+           month=factor(Mn.rel,levels=1:12),
+           SP=factor(Species,levels=c("WH","GM","BW","TK")))%>%
+    filter(!is.na(Rel_FL) & !is.na(Sex))%>%
+    mutate(Rel_FL.bin=bin*(floor(Rel_FL/bin)),
+           Rel_FL.bin=factor(Rel_FL.bin,levels=seq(min(Rel_FL.bin),max(Rel_FL.bin),bin)))
+  
+  a=d%>%
+    ggplot(aes(x=log(dist.trav_m), fill=COMMON_NAME)) + 
+    geom_histogram()+ 
+    theme(legend.position="top",legend.title=element_blank())
+  
+  b=d%>%
+    ggplot(aes(x=log(ROM), fill=COMMON_NAME)) + 
+    geom_histogram(show.legend = FALSE)+ 
+    theme(legend.position="top",legend.title=element_blank())
+
+  p=d%>%
+    ggplot(aes(x=Rel_FL, y=dist.km, colour=COMMON_NAME)) + 
+    geom_point()+  geom_smooth(method = "loess") +
+    theme(legend.position="top",legend.title=element_blank())
+  
+  p0=d%>%
+    ggplot(aes(x=Rel_FL, y=ROM, colour=COMMON_NAME)) + 
+    geom_point(show.legend = FALSE)+  geom_smooth(method = "loess") +
+    theme(legend.position="top",legend.title=element_blank())
+  
+  p1=d%>%
+    ggplot(aes(x=Rel_FL.bin, y=dist.km, fill=COMMON_NAME)) + 
+    geom_boxplot()+ theme(legend.position="top",legend.title=element_blank())
+  p2=d%>%
+    ggplot(aes(x=Rel_FL.bin, y=ROM, fill=COMMON_NAME)) + 
+    geom_boxplot(show.legend = FALSE)
+  
+  p3=d%>%
+    ggplot(aes(x=month, y=dist.km, fill=COMMON_NAME)) + 
+    geom_boxplot()+ theme(legend.position="top",legend.title=element_blank())
+  p4=d%>%
+    ggplot(aes(x=month, y=ROM, fill=COMMON_NAME)) + 
+    geom_boxplot(show.legend = FALSE)
+
+  p5=d%>%
+    ggplot(aes(x=Areas, y=dist.km, fill=COMMON_NAME)) + 
+    geom_boxplot()+ theme(legend.position="top",legend.title=element_blank())
+  p6=d%>%
+    ggplot(aes(x=Areas, y=ROM, fill=COMMON_NAME)) + 
+    geom_boxplot(show.legend = FALSE)
+  
+  p7=d%>%
+    ggplot(aes(x=Sex, y=dist.km, fill=COMMON_NAME)) + 
+    geom_boxplot()+ theme(legend.position="top",legend.title=element_blank())
+  p8=d%>%
+    ggplot(aes(x=Sex, y=ROM, fill=COMMON_NAME)) + 
+    geom_boxplot(show.legend = FALSE)
+  
+  #density distribution by month
+  # ggplot(d, aes(x = ROM, y = factor(Mn.rel), fill = ..x..)) +
+  #   geom_density_ridges_gradient(scale = 3, rel_min_height = 0.01) +
+  #   scale_fill_viridis(name = "Temp. [F]", option = "C") +
+  #   coord_cartesian(xlim = c(0, quantile(d$ROM,0.99))) +
+  #   theme_ipsum() + labs(title = 'Month released')+
+  #   xlab("ROM (km per day)")+ylab('Month')+
+  #   theme(legend.position="none",panel.spacing = unit(0.1, "lines"),strip.text.x = element_text(size = 8))+
+  #   facet_wrap(~COMMON_NAME)
+  
+  
+  plot_list=list(a,b,p,p0,p1,p2,p3,p4,p5,p6,p7,p8)
+  multi.page <-ggarrange(plotlist=plot_list, nrow = 2, ncol = 1)
+  ggexport(multi.page, filename = "explore_linear_model.pdf")
+
 }
-axis(side = 1, at = log(LAG), labels = Time.Lag.legends,tck=-0.02,las=1,cex.axis=1.2)
-axis(side = 2, at =seq(0,MAX.Y,100), labels = seq(0,MAX.Y,100),tck=-0.02,las=1,cex.axis=1.2)
-legend("topleft",Species.names,bty="n",cex=1.5,col=col.species,pch=pch.species,pt.bg=bg.species)
-mtext("RMS displacement (km)",side=2,outer=T,line=1.25,font=1,las=0,cex=1.75)
-mtext("Time lag (log scale)",side=1,outer=T,line=0.5,font=1,las=0,cex=1.75)
-text(7.07,-87,"3 yr",cex=1.21)
-dev.off()
+fun.explr(d=Tagging%>%filter(Species%in%SPECIES),bin=10)
 
+#Fit model
+library(ciTools)
+library(multcomp)
 
+fit.mod=function(bin=10)
+{
+  d=Tagging%>%
+    filter(Species%in%SPECIES & Sex%in%c("F","M"))%>%
+    filter(!is.na(Rel_FL))%>%
+    mutate(SP=factor(Species),
+           Sex=as.factor(Sex),
+           CONDITION=as.factor(CONDITION),
+           Log.DaysAtLarge=log(DaysAtLarge),
+           Log.ROM=log(ROM),
+           Log.dist=log(dist.trav_m),
+           Log.Rel_FL=log(Rel_FL),
+           Areas=as.factor(as.character(Areas)),
+           Rel_FL.bin=bin*(floor(Rel_FL/bin)),
+           Rel_FL.bin=factor(Rel_FL.bin,levels=seq(min(Rel_FL.bin),max(Rel_FL.bin),bin)))
+  
+  
+  mod.dist<-glm(Log.dist~ Log.DaysAtLarge+SP+Log.Rel_FL+Areas+Sex+CONDITION,
+         family=gaussian(link = "identity"),data=d) 
+  
+  #summary(glht(mod.dist, mcp(SP="Tukey")))
+  
+  Sig.Distance.km.glm=anova(mod.dist,test='Chisq')	
+  Dev.exp=round(Dsquared(mod.dist,adjust=F)$d3)
+  
+  NewData=expand.grid(Log.DaysAtLarge=log(mean(d$DaysAtLarge)),
+                      SP=factor(levels(d$SP),levels=levels(d$SP)),
+                      Areas=factor("JASDGDLF.zone1",levels=levels(d$Areas)),
+                      Log.Rel_FL=log(seq(min(10*floor(d$Rel_FL/10)),max(d$Rel_FL),by=10)),
+                      Sex=factor("F",levels=levels(d$Sex)),
+                      CONDITION=factor("1",levels=levels(d$CONDITION)))
+  NewData=add_ci(NewData,mod.dist,alpha=0.05,response=TRUE)
+  
+  NewData%>%
+    ggplot(aes(x=exp(Log.Rel_FL),y=exp(pred)/1000,colour=SP))+geom_line()+
+    geom_smooth(aes(ymin = exp(LCB0.025)/1000, 
+                    ymax = exp(UCB0.975)/1000),
+                stat = "identity")
+    
+    geom_errorbar(aes(ymin=exp(LCB0.025)/1000, ymax=exp(UCB0.975)/1000), width=.1)
+  
+}
 
-
-
-#7. LINEAR MODELLING FOR MOVEMENT PATTERN PAPER
 
 #select only species of interest
 Tagging.mySpecies=subset(Tagging,Species%in%SPECIES)
@@ -2892,13 +2804,6 @@ Tagging.mySpecies=subset(Tagging.mySpecies,Sex%in%c("F","M"))
 
 
 #--Distance travelled
-  #examine response var distribution
-par(mfcol=c(3,1))
-hist(log(Tagging.mySpecies$dist.trav_m/1000),main="Displacement (km)")
-hist(Tagging.mySpecies$DaysAtLarge,main="DaysAtLarge")
-hist(log(Tagging.mySpecies$speed),main="speed")
-
-
 #Plot fit diagnostics function
 fn.plot.diag=function(MODEL,TEXT,SPECIES)
 {
@@ -2947,25 +2852,36 @@ Dsquared <- function(model, adjust = F)
   return(list(d1=d1,d2=d2,d3=d3))
 }
 
-#1. Displacement GLM
-Dat=subset(Tagging.mySpecies,dist.trav_m>1 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
-Dat$Species=as.factor(Dat$Species)
-Dat$Sex=as.factor(Dat$Sex)
-Dat$CONDITION=as.factor(Dat$CONDITION)
-Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
-Dat$Log.Rel_FL=log(Dat$Rel_FL)
-Dat$Areas=as.character(Dat$Areas)
-Dat$Areas=as.factor(Dat$Areas)
+Species.size=FALSE #prelim anal showed non significant interaction
 
-
-Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species+Areas+Log.Rel_FL+Sex+CONDITION,
-                      family=gaussian(link = "identity"),data=Dat) 
- 
-   #diagnostic plots (fit check)
-tiff(file="Paper/displacement.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-fn.plot.diag(Distance.km.glm,"Lognormal error ","Displacement km")
-dev.off()
-
+#1. Displacement 
+do.displacement=TRUE
+if(do.displacement)
+{
+  Dat=subset(Tagging.mySpecies,dist.trav_m>1 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
+  Dat$Species=as.factor(Dat$Species)
+  Dat$Sex=as.factor(Dat$Sex)
+  Dat$CONDITION=as.factor(Dat$CONDITION)
+  Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
+  Dat$Log.Rel_FL=log(Dat$Rel_FL)
+  Dat$Areas=as.character(Dat$Areas)
+  Dat$Areas=as.factor(Dat$Areas)
+  
+  
+  
+  if(!isTRUE(Species.size))Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species+Areas+Log.Rel_FL+Sex+CONDITION,
+                                                family=gaussian(link = "identity"),data=Dat) 
+  if(Species.size) Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species*Log.Rel_FL+Areas+Sex+CONDITION,
+                                        family=gaussian(link = "identity"),data=Dat) 
+  
+  Post.hoc.comp.dist=summary(glht(Distance.km.glm, mcp(Species="Tukey")))
+   
+  
+  #diagnostic plots (fit check)
+  tiff(file="Paper/displacement.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  fn.plot.diag(Distance.km.glm,"Lognormal error ","Displacement km")
+  dev.off()
+  
   stats.Distance.km.glm=summary(Distance.km.glm)            
   
   #terms signficance    
@@ -2973,7 +2889,7 @@ dev.off()
   
   BiasCor.fn=function(Median,SE) biasCorr <- exp(Median+(SE^2)/2) #function for bias corrected mean in normal space
   
-
+  
   #combine anova and coefficients for publication
   Coefs=as.data.frame(stats.Distance.km.glm$coefficients)
   Coefs$Terms=rownames(Coefs)
@@ -2987,175 +2903,205 @@ dev.off()
   ANOVA=ANOVA[,match(c("Terms","Df","Deviance","Pr(>Chi)"),names(ANOVA))]
   ANOVA$"Pr(>Chi)"=round(ANOVA$"Pr(>Chi)",4)
   write.csv(ANOVA,"Paper/displacement.ANOVA.csv",row.names=F)
-
+  
   #deviance explained
   Dev.exp=round(Dsquared(Distance.km.glm,adjust=F)$d3)
- write.csv(Dev.exp,"Paper/displacement.Dev.exp.csv",row.names=F) 
+  write.csv(Dev.exp,"Paper/displacement.Dev.exp.csv",row.names=F) 
+  
+  
+  #Predict significant terms
+  if(!isTRUE(Species.size))
+  {
+    NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
+                        Species=factor(SPECIES,levels=levels(Dat$Species)),
+                        Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+                        Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
+                        CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  }
+  if(Species.size)
+  {
+    NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
+                        Species=factor(SPECIES,levels=levels(Dat$Species)),
+                        Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+                        Log.Rel_FL=log(seq(min(10*floor(Dat$Rel_FL/10)),max(Dat$Rel_FL),by=10)),
+                        Sex=factor("F",levels=levels(Dat$Sex)),
+                        CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  }
+  NewData.dist=NewData
+  
+  NewData.dist=add_ci(NewData.dist,Distance.km.glm,alpha=0.05,response=TRUE)
+  
+  Pred.dist.travel=predict(Distance.km.glm,newdata=NewData,type="response",se.fit=T)
+  #Pred.dist.travel$fit=BiasCor.fn(Pred.dist.travel$fit,Pred.dist.travel$se.fit)
+  
+    #   #FL-Species
+  # FL.range.pred=80:160
+  # Pred_FL_SP.dist.trav=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
+  #                     Species=factor(SPECIES,levels=levels(Dat$Species)),
+  #                     Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+  #                     Log.Rel_FL=log(FL.range.pred),Sex=factor("F",levels=levels(Dat$Sex)),
+  #                     CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  # ss=predict(Distance.km.glm,newdata=Pred_FL_SP.dist.trav,type="response",se.fit=T)
+  # Pred_FL_SP.dist.trav$pred=ss$fit
+  # Pred_FL_SP.dist.trav$pred.se=ss$se.fit
+}
 
+
+#2. ROM 
+do.ROM=TRUE
+if(do.ROM)
+{
+  Dat=subset(Tagging.mySpecies,speed>0 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
+  Dat$Species=as.factor(Dat$Species)
+  Dat$Sex=as.factor(Dat$Sex)
+  Dat$CONDITION=as.factor(Dat$CONDITION)
+  Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
+  Dat$Log.Rel_FL=log(Dat$Rel_FL)
+  Dat$Areas=as.character(Dat$Areas)
+  Dat$Areas=as.factor(Dat$Areas)
+  
+  if(!isTRUE(Species.size)) Speed.glm<-glm(log(ROM)~ Species+Areas+Log.Rel_FL+Sex+CONDITION,
+                                           family=gaussian(link = "identity"),data=Dat) 
+  if(Species.size) Speed.glm<-glm(log(ROM)~ Species*Log.Rel_FL+Areas+Sex+CONDITION,
+                                  family=gaussian(link = "identity"),data=Dat) 
+  
+  
+  Post.doc.comp.ROM=summary(glht(Speed.glm, mcp(Species="Tukey")))
+  
+  #diagnostic plots (fit check)
+  tiff(file="Paper/Speed.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  fn.plot.diag(Speed.glm,"Lognormal error ","ROM")
+  dev.off()
+  
+  stats.speed.glm=summary(Speed.glm)            
+  
+  #terms signficance    
+  Sig.speed.glm=anova(Speed.glm,test='Chisq')  	
+  
+  
+  #combine anova and coefficients for publication
+  Coefs=as.data.frame(stats.speed.glm$coefficients)
+  Coefs$Terms=rownames(Coefs)
+  Just.coef=Coefs[,1] 
+  names(Just.coef)=rownames(Coefs)
+  Just.coef[10]
+  ANOVA=as.data.frame(Sig.speed.glm)
+  ANOVA=ANOVA[-1,]
+  ANOVA$Terms=rownames(ANOVA)
+  rownames(ANOVA)=NULL
+  ANOVA=ANOVA[,match(c("Terms","Df","Deviance","Pr(>Chi)"),names(ANOVA))]
+  ANOVA$"Pr(>Chi)"=round(ANOVA$"Pr(>Chi)",4)
+  write.csv(ANOVA,"Paper/speed.ANOVA.csv",row.names=F)
+  
+  #deviance explained
+  Dev.exp=round(Dsquared(Speed.glm,adjust=F)$d3)
+  write.csv(Dev.exp,"Paper/speed.Dev.exp.csv",row.names=F) 
 
   #Predict significant terms
-    #Species
-      #interaction
-NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-                    Species=factor(SPECIES,levels=levels(Dat$Species)),
-                    Areas=factor(unique(Dat$Areas),levels=levels(Dat$Areas)),
-                    Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                    CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-NewData=subset(NewData,!((Species=="TK" & Areas=="JASDGDLF.zone2")| (Species=="GM" & Areas=="WCDGDLF")|
-                           Areas%in%c("SA","WANCSF","closed")))
-
-    #main effects
-NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-                    Species=factor(SPECIES,levels=levels(Dat$Species)),
-                    Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                    Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                    CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-
-Pred.dist.travel=predict(Distance.km.glm,newdata=NewData,type="response",se.fit=T)
-Pred.dist.travel$fit=BiasCor.fn(Pred.dist.travel$fit,Pred.dist.travel$se.fit)
-
-#   #FL-Species
-# FL.range.pred=80:160
-# Pred_FL_SP.dist.trav=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-#                     Species=factor(SPECIES,levels=levels(Dat$Species)),
-#                     Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-#                     Log.Rel_FL=log(FL.range.pred),Sex=factor("F",levels=levels(Dat$Sex)),
-#                     CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-# ss=predict(Distance.km.glm,newdata=Pred_FL_SP.dist.trav,type="response",se.fit=T)
-# Pred_FL_SP.dist.trav$pred=ss$fit
-# Pred_FL_SP.dist.trav$pred.se=ss$se.fit
-
-
-
-#2. ROM GLM
-Dat=subset(Tagging.mySpecies,speed>0 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
-Dat$Species=as.factor(Dat$Species)
-Dat$Sex=as.factor(Dat$Sex)
-Dat$CONDITION=as.factor(Dat$CONDITION)
-Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
-Dat$Log.Rel_FL=log(Dat$Rel_FL)
-Dat$Areas=as.character(Dat$Areas)
-Dat$Areas=as.factor(Dat$Areas)
-
-Speed.glm<-glm(log(ROM)~ Species+Areas+Log.Rel_FL+Sex+CONDITION,
-                     family=gaussian(link = "identity"),data=Dat) 
-
-#diagnostic plots (fit check)
-tiff(file="Paper/Speed.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-fn.plot.diag(Speed.glm,"Lognormal error ","ROM")
-dev.off()
-
-stats.speed.glm=summary(Speed.glm)            
-
-#terms signficance    
-Sig.speed.glm=anova(Speed.glm,test='Chisq')  	
-
-
-#combine anova and coefficients for publication
-Coefs=as.data.frame(stats.speed.glm$coefficients)
-Coefs$Terms=rownames(Coefs)
-Just.coef=Coefs[,1] 
-names(Just.coef)=rownames(Coefs)
-Just.coef[10]
-ANOVA=as.data.frame(Sig.speed.glm)
-ANOVA=ANOVA[-1,]
-ANOVA$Terms=rownames(ANOVA)
-rownames(ANOVA)=NULL
-ANOVA=ANOVA[,match(c("Terms","Df","Deviance","Pr(>Chi)"),names(ANOVA))]
-ANOVA$"Pr(>Chi)"=round(ANOVA$"Pr(>Chi)",4)
-write.csv(ANOVA,"Paper/speed.ANOVA.csv",row.names=F)
-
-#deviance explained
-Dev.exp=round(Dsquared(Speed.glm,adjust=F)$d3)
-write.csv(Dev.exp,"Paper/speed.Dev.exp.csv",row.names=F) 
-
-
-#Predict significant terms
-#Species
-NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
-                    Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                    Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                    CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-
-Pred.speed=predict(Speed.glm,newdata=NewData,type="response",se.fit=T)
-Pred.speed$fit=BiasCor.fn(Pred.speed$fit,Pred.speed$se.fit)
+  if(!isTRUE(Species.size))
+  {
+    NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
+                        Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+                        Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
+                        CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  }
+  if(Species.size)
+  {
+    NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
+                        Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+                        Log.Rel_FL=log(seq(min(10*floor(Dat$Rel_FL/10)),max(Dat$Rel_FL),by=10)),
+                        Sex=factor("F",levels=levels(Dat$Sex)),
+                        CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  }
+  NewData.rom=NewData
+  NewData.rom=add_ci(NewData.rom,Speed.glm,alpha=0.05,response=TRUE)
+  
+  Pred.speed=predict(Speed.glm,newdata=NewData,type="response",se.fit=T)
+  #Pred.speed$fit=BiasCor.fn(Pred.speed$fit,Pred.speed$se.fit)
+  
+}
 
 
 #3. Days at large GLM
-Dat=subset(Tagging.mySpecies,DaysAtLarge>0 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
-Dat$Species=as.factor(Dat$Species)
-Dat$Sex=as.factor(Dat$Sex)
-Dat$CONDITION=as.factor(Dat$CONDITION)
-Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
-Dat$Log.Rel_FL=log(Dat$Rel_FL)
-Dat$Areas=as.character(Dat$Areas)
-Dat$Areas=as.factor(Dat$Areas)
-
-Days.glm.Pois<-glm(DaysAtLarge~ Species+Areas+Log.Rel_FL+Sex+CONDITION,
-               family=poisson(link = "log"),data=Dat) 
-
-Days.glm.NB<-glm.nb(DaysAtLarge~ Species*Areas+Log.Rel_FL+Sex+CONDITION,data=Dat) 
-
-
-#note: If not >> 1, then Poisson...
-OverDisp=function(MoD)
+do.days.large=FALSE
+if(do.days.large)
 {
-  E1=resid(MoD,type='pearson')
-  Dispersion=sum(E1^2)/MoD$df.resid 
-  if(is.null(MoD))Dispersion=NA
-  return(list(Dispersion=Dispersion))
+  Dat=subset(Tagging.mySpecies,DaysAtLarge>0 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
+  Dat$Species=as.factor(Dat$Species)
+  Dat$Sex=as.factor(Dat$Sex)
+  Dat$CONDITION=as.factor(Dat$CONDITION)
+  Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
+  Dat$Log.Rel_FL=log(Dat$Rel_FL)
+  Dat$Areas=as.character(Dat$Areas)
+  Dat$Areas=as.factor(Dat$Areas)
+  
+  Days.glm.Pois<-glm(DaysAtLarge~ Species+Areas+Log.Rel_FL+Sex+CONDITION,
+                     family=poisson(link = "log"),data=Dat) 
+  
+  Days.glm.NB<-glm.nb(DaysAtLarge~ Species*Areas+Log.Rel_FL+Sex+CONDITION,data=Dat) 
+  
+  
+  #note: If not >> 1, then Poisson...
+  OverDisp=function(MoD)
+  {
+    E1=resid(MoD,type='pearson')
+    Dispersion=sum(E1^2)/MoD$df.resid 
+    if(is.null(MoD))Dispersion=NA
+    return(list(Dispersion=Dispersion))
+  }
+  OverDisp(Days.glm.Pois)
+  OverDisp(Days.glm.NB)
+  
+  #diagnostic plots (fit check)
+  tiff(file="Paper/Days.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  fn.plot.diag(Days.glm.NB,"Negative Binomial error ","Days at large")
+  dev.off()
+  
+  stats.days.glm=summary(Days.glm.NB)            
+  
+  #terms signficance    
+  Sig.days.glm=anova(Days.glm.NB,test='Chisq')    
+  
+  
+  #combine anova and coefficients for publication
+  Coefs=as.data.frame(stats.days.glm$coefficients)
+  Coefs$Terms=rownames(Coefs)
+  Just.coef=Coefs[,1] 
+  names(Just.coef)=rownames(Coefs)
+  Just.coef[10]
+  ANOVA=as.data.frame(Sig.days.glm)
+  ANOVA=ANOVA[-1,]
+  ANOVA$Terms=rownames(ANOVA)
+  rownames(ANOVA)=NULL
+  ANOVA=ANOVA[,match(c("Terms","Df","Deviance","Pr(>Chi)"),names(ANOVA))]
+  ANOVA$"Pr(>Chi)"=round(ANOVA$"Pr(>Chi)",4)
+  write.csv(ANOVA,"Paper/days.ANOVA.csv",row.names=F)
+  
+  #deviance explained
+  Dev.exp=round(Dsquared(Days.glm.NB,adjust=F)$d3)
+  write.csv(Dev.exp,"Paper/days.Dev.exp.csv",row.names=F) 
+  
+  
+  #Predict significant terms
+  #Species
+  NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
+                      Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+                      Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
+                      CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  
+  
+  Pred.days=predict(Days.glm.NB,newdata=NewData,type="response",se.fit=T)
+  
+  
+  # Pred_FL_SP.days=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
+  #                              Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
+  #                              Log.Rel_FL=log(FL.range.pred),Sex=factor("F",levels=levels(Dat$Sex)),
+  #                              CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+  # ss=predict(Days.glm.NB,newdata=Pred_FL_SP.days,type="response",se.fit=T)
+  # Pred_FL_SP.days$pred=ss$fit
+  # Pred_FL_SP.days$pred.se=ss$se.fit
+  
 }
-OverDisp(Days.glm.Pois)
-OverDisp(Days.glm.NB)
-
-#diagnostic plots (fit check)
-tiff(file="Paper/Days.GLM.diagnostics.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-fn.plot.diag(Days.glm.NB,"Negative Binomial error ","Days at large")
-dev.off()
-
-stats.days.glm=summary(Days.glm.NB)            
-
-#terms signficance    
-Sig.days.glm=anova(Days.glm.NB,test='Chisq')    
-
-
-#combine anova and coefficients for publication
-Coefs=as.data.frame(stats.days.glm$coefficients)
-Coefs$Terms=rownames(Coefs)
-Just.coef=Coefs[,1] 
-names(Just.coef)=rownames(Coefs)
-Just.coef[10]
-ANOVA=as.data.frame(Sig.days.glm)
-ANOVA=ANOVA[-1,]
-ANOVA$Terms=rownames(ANOVA)
-rownames(ANOVA)=NULL
-ANOVA=ANOVA[,match(c("Terms","Df","Deviance","Pr(>Chi)"),names(ANOVA))]
-ANOVA$"Pr(>Chi)"=round(ANOVA$"Pr(>Chi)",4)
-write.csv(ANOVA,"Paper/days.ANOVA.csv",row.names=F)
-
-#deviance explained
-Dev.exp=round(Dsquared(Days.glm.NB,adjust=F)$d3)
-write.csv(Dev.exp,"Paper/days.Dev.exp.csv",row.names=F) 
-
-
-#Predict significant terms
-#Species
-NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
-                    Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                    Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                    CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-
-
-Pred.days=predict(Days.glm.NB,newdata=NewData,type="response",se.fit=T)
-
-
-# Pred_FL_SP.days=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
-#                              Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-#                              Log.Rel_FL=log(FL.range.pred),Sex=factor("F",levels=levels(Dat$Sex)),
-#                              CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-# ss=predict(Days.glm.NB,newdata=Pred_FL_SP.days,type="response",se.fit=T)
-# Pred_FL_SP.days$pred=ss$fit
-# Pred_FL_SP.days$pred.se=ss$se.fit
 
 
   #plot predictions
@@ -3233,130 +3179,261 @@ fn.bar=function(what,what.se1,what.se2,CLO,YLIM,DO.axis,BY)
   box()
 }
 
-fn.bar.st=function(what,what.se1,what.se2,CLO,YLIM,DO.axis,BY)
+fn.bar.st=function(Mean,lowCI,upCI,CLO,DO.axis,BY)
 {
-  what=what/mean(what)   #standardise to mean of 1
-  what.se1=what.se1/mean(what.se1)
-  what.se2=what.se2/mean(what.se2)
   
+  what.se1=lowCI/mean(Mean)  #standardise to mean of 1
+  what.se2=upCI/mean(Mean)
+  what=Mean/mean(Mean)   
+  
+  YLIM=c(0,max(what.se2)*1.05)
   mp <- barplot(what, axes=FALSE, axisnames=FALSE, ylim=YLIM,col=CLO, main="", xlab="", ylab="")
-  # arrows(mp, what, mp , what.se1,lwd=2,angle=90,length = 0.1)
-  # arrows(mp, what, mp , what.se2,lwd=2,angle=90,length = 0.1)
+  segments(c(mp), what.se1, c(mp) , what.se2,lwd=2)
   axis(2, at=seq(YLIM[1], YLIM[2], by=BY),cex.axis=1.5)
   axis(1, labels=c("","","",""), at = mp)
-  if(DO.axis=="YES")axis(1, labels=c("Sandbar","Dusky","Gummy","Whiskery"), at = mp,cex.axis=2)
+  if(DO.axis=="YES")axis(1, labels=c("Sandbar","Dusky","Gummy","Whiskery"), at = mp,cex.axis=1.35)
   box()
 }
 
 
-tiff(file="Paper/Figure5.tiff",width = 2000, height = 2400,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(3,1),mai=c(.3,.6,.06,.125),oma=c(.2,1.75,.01,.01),las=1)
-NN=4
-#Species displacement
-fn.bar.st(Pred.dist.travel$fit,Pred.dist.travel$fit-Pred.dist.travel$se.fit,
-          Pred.dist.travel$fit+Pred.dist.travel$se.fit,"grey60",c(0,2),"NO",.5)
-
-# fn.bar.inter.st(exp(Pred.dist.travel$fit),exp(Pred.dist.travel$fit-Pred.dist.travel$se.fit),
-#              exp(Pred.dist.travel$fit+Pred.dist.travel$se.fit),CLO,c(0,3),.5)
-mtext("Displacement",2,line=4,las=3,cex=1.75)
-# fn.bar.inter(exp(Pred.dist.travel$fit),exp(Pred.dist.travel$fit-Pred.dist.travel$se.fit),
-#        exp(Pred.dist.travel$fit+Pred.dist.travel$se.fit),CLO,c(0,350),50)
-# legend("topleft",c("Sandbar","Dusky","Gummy","Whiskery"),bty="n",horiz =T,fill=CLO,cex=1.8)
-#mtext("Displacement (km)",2,line=4.5,las=3,cex=1.6)
-
-#Species days at liberty
-fn.bar.st(Pred.days$fit,Pred.days$fit-Pred.days$se.fit,
-       Pred.days$fit+Pred.days$se.fit,"grey60",c(0,2),"NO",.5)
-mtext("Time at liberty",2,line=4,las=3,cex=1.75)
-
-# fn.bar(Pred.days$fit,Pred.days$fit-Pred.days$se.fit,
-#        Pred.days$fit+Pred.days$se.fit,"grey60",c(0,1180),"NO",200)
-# mtext("Time at liberty (days)",2,line=4.5,las=3,cex=1.65)
-
-#Species ROM
-fn.bar.st(Pred.speed$fit,Pred.speed$fit-Pred.speed$se.fit,
-       Pred.speed$fit+Pred.speed$se.fit,"grey60",c(0,2),"YES",.5)
-mtext("Rate of movement",2,line=4,las=3,cex=1.75)
-# fn.bar(exp(Pred.speed$fit)*3.6,exp(Pred.speed$fit-Pred.speed$se.fit)*3.6,
-#        exp(Pred.speed$fit+Pred.speed$se.fit)*3.6,"grey60",c(0,.031),"YES",.005)
-# mtext("Speed (km/h)",2,line=4.5,las=3,cex=1.65)
-dev.off()
-
-
-
-#--Bearing 
-  #examine response var distribution
-rose.diag(circular(Tagging.mySpecies$bearing,units="degrees"), bins = 16, main = '')
-
-  #statistical tests (see Zar 1999 page 616)
-  #RAO's test
-#if Sig then distribution is not Uniform
-RAO=function(DATs) rao.spacing.test(circular(DATs$bearing,units="degrees")) 
-
-  #Rayleigh's test
-#if Sig then distribution is not random
-RAYLEIGH=function(DATs) rayleigh.test(circular(DATs$bearing,units="degrees")) 
-
-Store.Circ.stats=vector('list',length=length(SPECIES))
-names(Store.Circ.stats)=SPECIES
-
-for(i in 1:length(SPECIES))
+if(!isTRUE(Species.size))
 {
-  DATs=subset(Tagging.mySpecies,Species==SPECIES[i])
-  dummy.store=vector('list',length(AREAS.bearing))
-  names(dummy.store)=AREAS.bearing
-
-  for (j in 1:length(AREAS.bearing))
-  {
-    dummy.store[[j]]=NULL
-    if(!(i%in%c(2:4) & j==1))
-    {
-      if(i==4 & j%in%1:2) dummy.store[[j]]=NA
-      if(!i==4 & j%in%1:2)
-      {
-        dat=subset(DATs,Areas%in%AREAS.bearing[[j]])
-        store.rao=RAO(dat)
-        store.rayleigh=RAYLEIGH(dat)
-        dummy.store[[j]]=list(RaO=store.rao,RayleigH=store.rayleigh)
-      }
-
-      
-    }
-  }
-  Store.Circ.stats[[i]]=dummy.store
+  tiff(file="Paper/Figure4.tiff",width = 2000, height = 2400,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(2,1),mai=c(.35,.7,.06,.125),oma=c(.2,1.75,.01,.01),las=1,mgp=c(1.35,.8,0))
+  NN=4
+  #Species displacement
+  fn.bar.st(Mean=exp(NewData.dist$pred),lowCI=exp(NewData.dist$LCB0.025),
+            upCI=exp(NewData.dist$UCB0.975),CLO="grey60",DO.axis="NO",BY=.5)
+  
+  # fn.bar.inter.st(exp(Pred.dist.travel$fit),exp(Pred.dist.travel$fit-Pred.dist.travel$se.fit),
+  #              exp(Pred.dist.travel$fit+Pred.dist.travel$se.fit),CLO,c(0,3),.5)
+  mtext("Relative displacement",2,line=3,las=3,cex=1.75)
+  # fn.bar.inter(exp(Pred.dist.travel$fit),exp(Pred.dist.travel$fit-Pred.dist.travel$se.fit),
+  #        exp(Pred.dist.travel$fit+Pred.dist.travel$se.fit),CLO,c(0,350),50)
+  # legend("topleft",c("Sandbar","Dusky","Gummy","Whiskery"),bty="n",horiz =T,fill=CLO,cex=1.8)
+  #mtext("Displacement (km)",2,line=4.5,las=3,cex=1.6)
+  
+  #Species days at liberty
+  # fn.bar.st(Pred.days$fit,Pred.days$fit-Pred.days$se.fit,
+  #           Pred.days$fit+Pred.days$se.fit,"grey60",c(0,2),"NO",.5)
+  # mtext("Time at liberty",2,line=4,las=3,cex=1.75)
+  
+  # fn.bar(Pred.days$fit,Pred.days$fit-Pred.days$se.fit,
+  #        Pred.days$fit+Pred.days$se.fit,"grey60",c(0,1180),"NO",200)
+  # mtext("Time at liberty (days)",2,line=4.5,las=3,cex=1.65)
+  
+  #Species ROM
+  fn.bar.st(Mean=exp(NewData.rom$pred),lowCI=exp(NewData.rom$LCB0.025),
+            upCI=exp(NewData.rom$UCB0.975),CLO="grey60",DO.axis="YES",BY=.5)
+  
+  # fn.bar.st(Pred.speed$fit,Pred.speed$fit-Pred.speed$se.fit,
+  #           Pred.speed$fit+Pred.speed$se.fit,"grey60",c(0,2),"YES",.5)
+  mtext("Relative rate of movement",2,line=3,las=3,cex=1.75)
+  # fn.bar(exp(Pred.speed$fit)*3.6,exp(Pred.speed$fit-Pred.speed$se.fit)*3.6,
+  #        exp(Pred.speed$fit+Pred.speed$se.fit)*3.6,"grey60",c(0,.031),"YES",.005)
+  # mtext("Speed (km/h)",2,line=4.5,las=3,cex=1.65)
+  dev.off()
+  
 }
 
-#Look at Circular stats
-Store.Circ.stats
+if(Species.size)
+{
+  plt.fn=function(d,fit,se)
+  {
+    d=cbind(d,fit,se)%>%
+      mutate(low.95=fit-1.96*se,
+             up.95=fit+1.96*se,
+             fit.rel=fit/mean(fit),
+             low.95.rel=low.95/mean(fit),
+             up.95.rel=up.95/mean(fit),
+             FL=exp(Log.Rel_FL))%>%
+      arrange(Species)
+    
+    d%>%
+      ggplot(aes(FL,fit.rel, colour = factor(Species)))+
+      geom_point()+
+      geom_errorbar(aes(ymin=low.95.rel, ymax=up.95.rel), width=2)
+  }
+  
+  plt.fn(d=NewData.dist,fit=Pred.dist.travel$fit,se=Pred.dist.travel$se.fit)
+  
+  plt.fn(d=NewData.rom,fit=Pred.speed$fit,se=Pred.speed$se.fit)
+  
+  
+  
+}
 
-
+#--Bearing 
+Do.Bearing=FALSE
+if(Do.Bearing)
+{
+  #examine response var distribution
+  rose.diag(circular(Tagging.mySpecies$bearing,units="degrees"), bins = 16, main = '')
+  
+  #statistical tests (see Zar 1999 page 616)
+  #RAO's test
+  #if Sig then distribution is not Uniform
+  RAO=function(DATs) rao.spacing.test(circular(DATs$bearing,units="degrees")) 
+  
+  #Rayleigh's test
+  #if Sig then distribution is not random
+  RAYLEIGH=function(DATs) rayleigh.test(circular(DATs$bearing,units="degrees")) 
+  
+  Store.Circ.stats=vector('list',length=length(SPECIES))
+  names(Store.Circ.stats)=SPECIES
+  
+  for(i in 1:length(SPECIES))
+  {
+    DATs=subset(Tagging.mySpecies,Species==SPECIES[i])
+    dummy.store=vector('list',length(AREAS.bearing))
+    names(dummy.store)=AREAS.bearing
+    
+    for (j in 1:length(AREAS.bearing))
+    {
+      dummy.store[[j]]=NULL
+      if(!(i%in%c(2:4) & j==1))
+      {
+        if(i==4 & j%in%1:2) dummy.store[[j]]=NA
+        if(!i==4 & j%in%1:2)
+        {
+          dat=subset(DATs,Areas%in%AREAS.bearing[[j]])
+          store.rao=RAO(dat)
+          store.rayleigh=RAYLEIGH(dat)
+          dummy.store[[j]]=list(RaO=store.rao,RayleigH=store.rayleigh)
+        }
+        
+        
+      }
+    }
+    Store.Circ.stats[[i]]=dummy.store
+  }
+  
+  #Look at Circular stats
+  Store.Circ.stats
+  
+  
   #model        #NOTE: make sure same explanatory variables as for distance!!!ADD wEIGHT=Tagging$WEIGHT??
-
-#note: if the model falls ("Error in while (diff > tol) { : missing value where TRUE/FALSE needed"),
-#then add one covariate at a time (starting with DaysAtLarge) in stepwise manner. The lm.circular() is
-#very sensitive.
-#If failing, the use Colin's approach and do Raleigh and Rao's test for each variable.
-
-These.Covariates=Tagging.mySpecies[,match(c('bearing','Species','Sex','CONDITION','Rel_FL',
-                  'DaysAtLarge','Rel.name','Effort'),names(Tagging.mySpecies))]
-These.Covariates=These.Covariates[complete.cases(These.Covariates),]
-
-# model=lm.circular(y=circular(These.Covariates$bearing,units="degrees"), x=These.Covariates$DaysAtLarge,
-#                   init=2,type='c-l', verbose=T)
-
-
-
-
+  
+  #note: if the model falls ("Error in while (diff > tol) { : missing value where TRUE/FALSE needed"),
+  #then add one covariate at a time (starting with DaysAtLarge) in stepwise manner. The lm.circular() is
+  #very sensitive.
+  #If failing, the use Colin's approach and do Raleigh and Rao's test for each variable.
+  
+  These.Covariates=Tagging.mySpecies[,match(c('bearing','Species','Sex','CONDITION','Rel_FL',
+                                              'DaysAtLarge','Rel.name','Effort'),names(Tagging.mySpecies))]
+  These.Covariates=These.Covariates[complete.cases(These.Covariates),]
+  
+  # model=lm.circular(y=circular(These.Covariates$bearing,units="degrees"), x=These.Covariates$DaysAtLarge,
+  #                   init=2,type='c-l', verbose=T)
+  
+}
 
 
 
+# Not used ------------------------------------------------------------------
+#1. COMPARE LATEST ACCESS DUMP WITH TAGGING
+
+#Tab.All.releases.latest.Access=table(as.character(dat.capture$SPECIES))
+# Tab.All.releases=table(as.character(Tagging$Species))
+# if(!sum(Tab.All.releases.latest.Access)==sum(Tab.All.releases))print("CHECK OUT DATA")
+# 
+# 
+# Tab.All.rec.latest.Access=table(as.character(dat.rec$SPECIES))
+# Dummy=subset(Tagging,!is.na(Lat.rec))
+# Tab.All.rec=table(as.character(Dummy$Species))
+# if(!sum(Tab.All.rec.latest.Access)==sum(Tab.All.rec))print("CHECK OUT DATA")
+
+
+#Plot data by size classes (50 cm bins)
+# fun.plot.sp=function(whatDat,SPEC,MAT)
+# {
+#   ab.fn=function(){  abline(h=-33,lwd=2);segments(112,-26.5,114,-26.5,lwd=2)
+#                      segments(116.5,-36,116.5,-33,lwd=2);segments(114,0,114,-22,lwd=2)}
+#   if(whatDat=="Tagging")
+#   {
+#     dum=subset(Tagging,Species==SPEC)
+#     HIST=hist(dum$Rel_FL,breaks=seq(0,300,10),plot=F)
+#     
+#     Step=50
+#     dum$Bin=floor(dum$Rel_FL/Step)*Step
+#     Unico=sort(unique(dum$Bin))
+#     dum$Bin.col=factor(dum$Bin,labels=1:length(Unico))
+#     legnd=paste(as.numeric(levels(factor(dum$Bin))),"-",as.numeric(levels(factor(dum$Bin)))+Step,sep="")
+#     
+#     dum$MAT=ifelse(dum$Rel_FL>=MAT,'red',"blue")
+#     par(mfcol=c(1,1))
+#     plot(HIST,main=paste(SPEC,"release"))
+#     
+#     par(mfcol=c(2,1))
+#      plot(dum$Long.rels,dum$Lat.rels,main=paste(SPEC,"releases"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
+#     ab.fn()
+#     plot(dum$Long.rec,dum$Lat.rec,main=paste(SPEC,"recaptures"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
+#     legend("topleft",legnd,bty='n',pch=19,col=levels(dum$Bin.col),cex=0.8)
+#     ab.fn()
+#   }
+# 
+#   
+#   if(whatDat=="LatestAcces")
+#   {
+#     dum=subset(dat.capture,SPECIES==SPEC)
+#     HIST=hist(dum$FL,breaks=seq(0,300,10),plot=F)
+#     
+#     Step=50
+#     dum$Bin=floor(dum$FL/Step)*Step
+#     Unico=sort(unique(dum$Bin))
+#     dum$Bin.col=factor(dum$Bin,labels=1:length(Unico))
+#     legnd=paste(as.numeric(levels(factor(dum$Bin))),"-",as.numeric(levels(factor(dum$Bin)))+Step,sep="")
+#     
+#     dum$MAT=ifelse(dum$FL>=MAT,'red',"blue")
+#     par(mfcol=c(1,1))
+#     plot(HIST,main=paste(SPEC,"release"))
+#     
+#     par(mfcol=c(2,1))
+#     plot(dum$RELLNGDECDEG,-dum$RELLATDECDEG,main=paste(SPEC,"releases"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
+#     ab.fn()
+#     plot(dum$RECLNGDECDEG,-dum$RECLATDECDEG,main=paste(SPEC,"recaptures"),pch=19,col=dum$Bin.col,xlab="Long",ylab="Lat")
+#     legend("topleft",legnd,bty='n',pch=19,col=levels(dum$Bin.col),cex=0.8)
+#     ab.fn()
+#   }
+# 
+# }
+# 
+# 
+# fun.plot.sp("Tagging","TK",size.mat[1])
+# fun.plot.sp("LatestAcces","TK",size.mat[1])
+# 
+# fun.plot.sp("Tagging","BW",size.mat[2])
+# fun.plot.sp("LatestAcces","BW",size.mat[2])
+# 
+# fun.plot.sp("Tagging","WH",size.mat[3])
+# fun.plot.sp("LatestAcces","WH",size.mat[3])
 
 
 
+#2. MANIPULATE DATA
 
+#select relevant columns for receiver data
+#Perth
+# SMN_VR4G_metro=SMN_VR4G_metro[,match(c("Station No","Lat","Long"),names(SMN_VR4G_metro))]
+# SMN_VR4G_metro$line="SMN.VR4"
+# SMN_VR2W_metro$line="SMN.VR2"
+# OTN_VR2W_metro$line="OTN"
+# 
+#   #Southwest
+# TheseCols=c("Station No","Receiver No#","Date in","Actual Deg South","Actual Min South","Actual Deg East","Actual Min East")
+# SMN_VR2W_Hamelin=SMN_VR2W_Hamelin[,match(TheseCols,names(SMN_VR2W_Hamelin))]
+# SMN_VR2W_Albany=SMN_VR2W_Albany[,match(TheseCols,names(SMN_VR2W_Albany))]
+# DoF_Chatham=DoF_Chatham[,match(TheseCols,names(DoF_Chatham))]
+# SMN_VR2W_Hamelin$line="Hamelin"
+# SMN_VR2W_Albany$line="Albany"
+# DoF_Chatham$line="Chatham"
+# 
+# #combine receivers
+# Perth=rbind(SMN_VR4G_metro,SMN_VR2W_metro,OTN_VR2W_metro)
+# SouthWest=rbind(SMN_VR2W_Hamelin,SMN_VR2W_Albany,DoF_Chatham)
+# SouthWest$Long=SouthWest$"Actual Deg East"+(SouthWest$"Actual Min East"/60)   #convert mins to decimals degrees
+# SouthWest$Lat=-(SouthWest$"Actual Deg South"+(SouthWest$"Actual Min South"/60))
 
-
-#############################################
 
 #Export data from movement rate estimationg             
 #write.csv(Tagging,file="H:/Matias WA Fisheries/Analyses/Conventional tagging/Movement rate estimation/Tagging.csv",row.names =F)
@@ -3461,7 +3538,135 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 # 
 # 
 #   #3. EXPLORATORY ANALYSES AND SUMMARY STATISTICS
-# 
+# function.explore=function(SPECIES,Species.names)
+# {
+#   datos=subset(Tagging,Species==SPECIES)
+#   AREAS=unique(datos$Areas)
+#   
+#   #.. sex and size of released tagged sharks
+#   tiff(file=paste(Species.names,".Sex&Size.released.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     HISTO=table(datos1$Sex,floor(datos1$Rel_FL/10)) #create histogram
+#     barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
+#             names.arg= as.numeric(colnames(HISTO))*10,xlab="fork length (cm)",ylab="Frequency", 
+#             xpd=F,axis.lty=1, axes=T,col=rev(gray(1:nrow(HISTO)/nrow(HISTO))),cex.names=1.1,las=1,cex=1.1)
+#     box()
+#     legend("topleft",AREAS[i],bty="n")
+#     legend("topright",rownames(HISTO),fill=rev(gray(1:nrow(HISTO)/nrow(HISTO))),yjust=0, horiz=F,bty="n",cex=1.1)
+#     boxplot(datos1$Rel_FL~datos1$Sex, col = "lightgray",add = F,ylab="fork length (cm)",xlab="sex")
+#   }
+#   dev.off()
+#   
+#   #.. time at large
+#   tiff(file=paste(Species.names,".Time.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     boxplot(datos1$DaysAtLarge, xlab= "Time at liberty (days)")
+#     legend("topleft",AREAS[i],bty="n")
+#     hist(datos1$DaysAtLarge,breaks=50, xlab= "Time at liberty (days)", main="")
+#     box()
+#   }
+#   dev.off()
+#   
+#   #.. distance moved
+#   tiff(file=paste(Species.names,".Distance.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     boxplot(datos1$dist.trav_m/1000, xlab= "distance moved (km)")
+#     legend("topleft",AREAS[i],bty="n")
+#     hist(datos1$dist.trav_m/1000,breaks=50, xlab= "distance moved (km)", main="")
+#     box()
+#   }
+#   dev.off()
+#   
+#   #.. distance vs time at large
+#   tiff(file=paste(Species.names,".Distance VS Time.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(length(AREAS),1),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     plot(log(datos1$DaysAtLarge),log(datos1$dist.trav_m/1000), xlab= "ln(time at liberty (days))",ylab= "ln(distanced moved (km))")
+#     legend("topleft",AREAS[i],bty="n")
+#   }
+#   dev.off()
+#   
+#   #     #.. speed
+#   #   tiff(file=paste(Species.names,".Speed.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#   #      compression = "lzw")
+#   #   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   #   for(i in 1:length(AREAS))
+#   #   {
+#   #     datos1=subset(datos,Areas==AREAS[i])
+#   #     boxplot(datos1$speed, xlab= "speed (m/s)")
+#   #     legend("topleft",AREAS[i],bty="n")
+#   #     hist(datos1$speed,breaks=50, xlab= "speed (m/s)", main="")
+#   #     box()
+#   #   }
+#   #   dev.off()
+#   
+#   #.. bearing
+#   tiff(file=paste(Species.names,".Bearing.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(1,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     rose.diag(circular(datos1$bearing,units="degrees"), bins = 16, main = '')
+#     legend("topleft",AREAS[i],bty="n")
+#   }
+#   dev.off()
+#   
+#   #.. condition effect on distance moved and time at large
+#   #boxplots
+#   tiff(file=paste(Species.names,".Cond_on_Dist&Time.boxplot.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     boxplot(datos1$DaysAtLarge~datos1$CONDITION, xlab="condition",ylab= "Time at liberty (days)")
+#     legend("topleft",AREAS[i],bty="n")
+#     boxplot(datos1$dist.trav_m/1000~datos1$CONDITION, xlab="condition",ylab= "distance moved (km)")
+#     #  boxplot(datos1$speed~datos1$CONDITION, xlab="condition",ylab= "speed (m/s)")
+#   }
+#   dev.off()
+#   
+#   #histograms
+#   tiff(file=paste(Species.names,".Cond_on_Dist&Time.hist.tiff",sep=""),width = 2400, height = 2400,units = "px", res = 300,
+#        compression = "lzw")
+#   par(mfcol=c(2,length(AREAS)),oma=c(0.8,.8,0.8,.8),mar=c(3,3,1,1),mgp=c(1.5, 0.5, 0))
+#   for(i in 1:length(AREAS))
+#   {
+#     datos1=subset(datos,Areas==AREAS[i])
+#     HISTO=table(datos1$CONDITION,floor(datos1$DaysAtLarge/10)) #create histogram
+#     #COLORES=rev(gray(1:nrow(HISTO)/nrow(HISTO)))
+#     COLORES=c(2,3,4,"violet")
+#     barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
+#             names.arg= as.numeric(colnames(HISTO))*10,xlab=" Time at liberty (days)",ylab="Frequency", 
+#             xpd=F,axis.lty=1, axes=T,col=COLORES,cex.names=1.1,las=1,cex=1.1)
+#     box()
+#     legend("topleft",AREAS[i],bty="n")
+#     legend("topright",rownames(HISTO),fill=COLORES,yjust=0, horiz=F,bty="n",cex=1.1)
+#     
+#     HISTO=table(datos1$CONDITION,floor((datos1$dist.trav_m/1000)/100)) #create histogram
+#     barplot(HISTO, beside = TRUE,ylim=c(0,max(HISTO)),mgp = c(2, 0.6, 0),
+#             names.arg= as.numeric(colnames(HISTO))*100,xlab=" distance moved (km)",ylab="Frequency", 
+#             xpd=F,axis.lty=1, axes=T,col=COLORES,cex.names=1.1,las=1,cex=1.1)
+#     box()
+#   }
+#   dev.off()
+# }
 #   #apply exploratory function
 # #  STATS=list()
 # #  for(s in 1:length(SPECIES))
@@ -3473,7 +3678,17 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 # 
 # 
 #   #4. GENERAL ANALYSES FOR MOVEMENT PATTERN PAPER
-# 
+# General.numbers=function(SPECIES)
+# {
+#   datos=subset(All.rel.Tagging,Species==SPECIES)
+#   datos1=subset(Tagging,Species==SPECIES)
+#   
+#   n.rel=sum(!is.na(datos$Lat.rels))
+#   n.rec=sum(!is.na(datos$Lat.rec))
+#   n.rec1=sum(!is.na(datos1$Lat.rec))
+#   return(cbind(n.rel=n.rel,n.rec=n.rec,n.rec.used=n.rec1))
+#   
+# } 
 # #4.1 All releases and recaptures
 # ALL=NULL
 # for(s in 1:length(SPECIES))
@@ -3487,6 +3702,35 @@ These.Covariates=These.Covariates[complete.cases(These.Covariates),]
 # 
 # 
 # #4.2 Table 1.
+#5.1 Table 2. Summary of tags and recaptures
+
+# columns: SPECIES, YEAR OF TAGGING, NUMBER TAGGED (males in brackets) by year of recaptured, 
+#NUMBER RECAPTURED (males in brackets) by year of recaptured, final row with proportion recapture by year
+# Table1=function(SPECIES)
+# {
+#   datos=subset(All.rel.Tagging,Species==SPECIES)
+#   datos1=subset(Tagging,Species==SPECIES)
+#   datos1=subset(datos1,!is.na(Yr.rec))
+#   theseyears=sort(unique(datos$Yr.rel))
+#   recyears=sort(unique(datos1$Yr.rec))
+#   TABLE=list()
+#   for (i in 1:length(theseyears))
+#   {
+#     datos2=subset(datos,Yr.rel==theseyears[i])
+#     datos3=subset(datos1,Yr.rel==theseyears[i])
+#     #     n.tagged=table(datos1$Sex,useNA='ifany')
+#     #     n.females=n.tagged[match("F",names(n.tagged))]
+#     #     n.males=n.tagged[match("M",names(n.tagged))]
+#     #     n=n.females+n.males
+#     n=sum(!is.na(datos2$Lat.rels))
+#     n.yrs.rec=table(datos3$Yr.rec,useNA='ifany')
+#     recaptures=as.matrix(t(n.yrs.rec))
+#     yrs=colnames(recaptures)
+#     if(length(yrs)>0) colnames(recaptures)=paste("rec.",yrs,sep="")
+#     TABLE[[i]]=cbind("Year of tagging"=theseyears[i],"No. shark tagged"=n,recaptures)
+#   }
+#   return(TABLE)
+# }
 # for(s in 1:length(SPECIES))
 #   {
 #     write.csv(do.call(cbind,Table1(SPECIES[s])),file=paste("Table2.",Species.names[s],".csv",sep=""))
