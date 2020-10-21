@@ -148,7 +148,7 @@ Tagging=Tagging%>%
   mutate(Block=paste(trunc(abs(Lat.rels)),trunc(Long.rels)-100,sep=''))
 
 
-# Table 1. -----------------------------------------------------------------------
+# Table A1. -----------------------------------------------------------------------
 # Summary of numbers, size and sex ratios for all shark and ray species  
 Tab1.fun=function(Spec)
 {
@@ -231,7 +231,7 @@ Tabl1.matrix$N.rel=as.numeric(as.character(Tabl1.matrix$N.rel))
 Tabl1.matrix=Tabl1.matrix[order(-Tabl1.matrix$N.rel),]
 
 setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
-write.csv(Tabl1.matrix,"Paper/Table1.csv",row.names=F)
+write.csv(Tabl1.matrix,"Paper/Table.A1.csv",row.names=F)
 
 #word table
 Tabl1.doc=Tabl1.matrix %>%
@@ -276,7 +276,7 @@ Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
                    Rec.fl=ifelse(Rec.fl=='NA-NA','',Rec.fl))%>%
             rename('Size.range(cm).Release'=Rel.fl,
                    'Size.range(cm).Recapture'=Rec.fl)
-tab_df(Tabl1.doc,file="Paper/Tabl1.doc")
+tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
  
 
 
@@ -2307,9 +2307,6 @@ if(do.paper)
   #5. GENERAL ANALYSES FOR MOVEMENT PATTERN PAPER
   
   #5.1 Table 2. Report all shark and ray species tagged and recaptured (numbers, distances, days)
-  
-  #NOTE: This is for movement rate paper. NEEDS further work!
-  
   Numb.Sp.released=table(All.rel.Tagging$Species)
   Numb.Sp.recaptured=table(Tagging$Species)
   
@@ -2345,6 +2342,7 @@ if(do.paper)
     
     prop.more.100=round(nrow(Dat%>%filter(dist.trav_m>=100000))/nrow(Dat),2)
     prop.more.500=round(nrow(Dat%>%filter(dist.trav_m>=500000))/nrow(Dat),2)
+    
     dd=cbind(Species=Dat$COMMON_NAME[1],dist.km,Days,ROM,N=nrow(Dat),
              Prop.more.100=prop.more.100,Prop.more.500=prop.more.500)
     
@@ -2356,10 +2354,49 @@ if(do.paper)
   Combined=do.call(rbind,STORE.table1)%>%
     arrange(-N)
   rownames(Combined)=NULL
+  
+  #add tag type and rel and rec fleet
+  Dat=Tagging%>%
+    filter(Species%in%Rec.shks.rays)%>%
+    mutate(Tag.type=ifelse(Tag.type=='acoustic','conventional',Tag.type),
+           Tag.type=ifelse(Tag.type=='conventional','Rototag',
+                           ifelse(Tag.type=='conventional.dart','Dart tag',
+                                  NA)),
+           Species=COMMON_NAME)
+  
+  Tag.type=Dat%>%
+    group_by(Species,Tag.type)%>%
+    tally()%>%
+    spread(Tag.type,n,fill='')%>%
+    data.frame
+  
+  Rel.method=Dat%>%
+    group_by(Species,Rel.method)%>%
+    tally()%>%
+    spread(Rel.method,n,fill='')%>%
+    data.frame
+  re.nm=names(Rel.method)[-1]
+  Rel.method=Rel.method%>%
+    rename_at(all_of(re.nm), ~ paste("Release",re.nm,sep='_'))
+  
+  Rec.method=Dat%>%
+    group_by(Species,Rec.method)%>%
+    tally()%>%
+    spread(Rec.method,n,fill='')%>%
+    data.frame
+  re.nm=names(Rec.method)[-1]
+  Rec.method=Rec.method%>%
+    rename_at(all_of(re.nm), ~ paste("Recapture",re.nm,sep='_'))
+  
+  Add=full_join(Tag.type,Rel.method,by='Species')%>%
+    full_join(Rec.method,by='Species')
+  
+  Combined=left_join(Combined,Add,by="Species")
+  
   write.csv(Numb.Sp.released,file="Table_Numb.Sp.released.csv",row.names=F)
   write.csv(Numb.Sp.recaptured,file="Table_Numb.Sp.recaptured.csv",row.names=F)
-  write.csv(Combined,file="Paper/Table2_Dist.day.rom.csv",row.names=T) 
-  tab_df(Combined,file="Paper/Table2_Dist.day.rom.doc")
+  write.csv(Combined,file="Paper/Table1.csv",row.names=T) 
+  tab_df(Combined,file="Paper/Table1.doc")
   
   
   # Observed distribution of displacement, ROM and time at liberty
