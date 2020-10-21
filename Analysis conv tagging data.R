@@ -2270,6 +2270,48 @@ if(do.paper)
   }
   
   
+  #Rate of movement vs displacement category
+  library(FSA)
+
+  fn.bx.plt.dist.rom=function(d)
+  {
+    d=d%>%
+      mutate(displacement.cat=case_when(
+        dist.trav_m/1000<=100~"1-100",
+        dist.trav_m/1000>100 & dist.trav_m/1000<=200~"101-200",
+        dist.trav_m/1000>200 & dist.trav_m/1000<=500~"201-500",
+        dist.trav_m/1000>500~">500"),
+        displacement.cat=factor(displacement.cat,levels=c('1-100','101-200','201-500','>500')))
+    
+    d%>%
+      ggplot(aes(x=displacement.cat, y=ROM, fill=COMMON_NAME)) + 
+      geom_boxplot()+ labs(fill = "")+ylab("Rate of movement (km/day)")+
+      xlab("Displacement category (km)")+
+      scale_y_continuous(limits = quantile(d$ROM, c(0.1, 0.95)))+ 
+      theme(legend.position="bottom")
+    
+    KW.TK=kruskal.test(ROM ~ displacement.cat, data = d%>%filter(Species=="TK"))
+    KW.BW=kruskal.test(ROM ~ displacement.cat, data = d%>%filter(Species=="BW"))
+    KW.GM=kruskal.test(ROM ~ displacement.cat, data = d%>%filter(Species=="GM"))
+    KW.WH=kruskal.test(ROM ~ displacement.cat, data = d%>%filter(Species=="WH"))
+    
+    #Post hoc
+    PT.TK = dunnTest(ROM ~ displacement.cat,data=d%>%filter(Species=="TK"),method="bh")
+    PT.BW = dunnTest(ROM ~ displacement.cat,data=d%>%filter(Species=="BW"),method="bh")
+    PT.GM = dunnTest(ROM ~ displacement.cat,data=d%>%filter(Species=="GM"),method="bh")
+    PT.WH = dunnTest(ROM ~ displacement.cat,data=d%>%filter(Species=="WH"),method="bh")
+
+    
+    return(list(KruskalWalis.TK=KW.TK,Dunns.TK=PT.TK,
+                KruskalWalis.BW=KW.BW,Dunns.BW=PT.BW,
+                KruskalWalis.GM=KW.GM,Dunns.GM=PT.GM,
+                KruskalWalis.WH=KW.WH,Dunns.WH=PT.WH))
+    
+  }
+  #95% of observations to see pattern
+  ROM.v.Displ=fn.bx.plt.dist.rom(d=Tagging%>%filter(Species%in% SPECIES))
+  ggsave("Paper/FigureX_ROM.vs.Disp.Cat.tiff", width = 5,height = 5, dpi = 300,compression = "lzw")
+  
   #4.4 Minimum time step for modelling movement rates
   #time spent at zones
   fn.time.zone=function(dat)
