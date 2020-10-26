@@ -2,6 +2,12 @@
 
 #notes: this script maps the location of sharks tagged with conventional tags and performs a range of different analysis
 #       Speed values are low because sharks are not moving in straight line so this is minimum speed
+#       Data sheets t00008:t05015 and x00007:x00019 exist in Table ‘Tag data’ but not in 'Boat bio' or Boat header'
+#       so for those records we don't know what gear caught them, etc..
+
+#       Terry's data. See all variable definitions in C:\Matias\Data\Tagging\Conventional_tagging\Terry_data; files 
+#       Walker, TI et al_1997_Southern shark fishery monitoring data sets_20970420.pdf & Metadata sheet in 
+#       Tag data set for WA releases and recaptures to Matias_20140516.xlsx
 
 rm(list=ls(all=TRUE))   #clear log
 
