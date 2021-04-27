@@ -4,14 +4,16 @@
 
 library(fishmethods)
 rm(list=ls(all=TRUE))
-setwd("C:/Matias/Analyses/Conventional tagging/F_estimation")
+handl_OneDrive=function(x)paste('C:/Users/myb/OneDrive - Department of Primary Industries and Regional Development/Matias',x,sep='/')
+
+setwd(handl_OneDrive("Analyses/Conventional tagging/F_estimation"))
 
 
 
 #---DATA SECTION-------
 
 #1. tagging data
-source("C:/Matias/Analyses/SOURCE_SCRIPTS/Source_conventional_data.R")
+source(handl_OneDrive("Analyses/SOURCE_SCRIPTS/Git_other/Source_conventional_data.R"))
 
 
 

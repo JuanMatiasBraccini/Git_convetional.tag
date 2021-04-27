@@ -17,11 +17,11 @@ rm(list=ls(all=TRUE))   #clear log
 # ONLINE="NO"  #if working in Argentina  
 ONLINE="YES"  #Switch to YES to update Changes done by dani
 
+handl_OneDrive=function(x)paste('C:/Users/myb/OneDrive - Department of Primary Industries and Regional Development/Matias',x,sep='/')
 
+setwd(handl_OneDrive("Analyses/Conventional tagging"))  #function for settting the working directory
 
-setwd("C:/Matias/Analyses/Conventional tagging")  #function for settting the working directory
-
-source("C:/Matias/Analyses/SOURCE_SCRIPTS/Git_other/Plot.Map.R")   #function for sourcing other .R scripts
+source(handl_OneDrive("Analyses/SOURCE_SCRIPTS/Git_other/Plot.Map.R"))   #function for sourcing other .R scripts
 
 library(RODBC)  			#library for importing excel data
 library(gridBase)			#for inset map
@@ -52,7 +52,7 @@ library(mgcv)
 ###### DATA SECTION ############
 
       #SHAPE FILE PERTH ISLANDS
-PerthIs=read.table("C:/Matias/Data/Mapping/WAislandsPointsNew.txt", header=T) #function for reading txt file
+PerthIs=read.table(handl_OneDrive("Data/Mapping/WAislandsPointsNew.txt"), header=T) #function for reading txt file
 Rottnest.Is=subset(PerthIs,ID%in%c("ROTT1"))
 Garden.Is=subset(PerthIs,ID%in%c("ROTT3"))
 
@@ -60,16 +60,16 @@ Garden.Is=subset(PerthIs,ID%in%c("ROTT3"))
     #1.2. tagging data
 if(ONLINE=="NO")
 {
-  Tagging=read.csv("C:/Matias/Data/Tagging/Conventional_tagging/Tagging_data.csv") 
-  Species.Codes=read.csv("C:/Matias/Data/Species.code.csv")    
+  Tagging=read.csv(handl_OneDrive("Data/Tagging/Conventional_tagging/Tagging_data.csv")) 
+  Species.Codes=read.csv(handl_OneDrive("Data/Species.code.csv"))    
 }
-if(ONLINE=="YES") source("C:/Matias/Analyses/SOURCE_SCRIPTS/Git_other/Source_conventional_data.R")
+if(ONLINE=="YES") source(handl_OneDrive("Analyses/SOURCE_SCRIPTS/Git_other/Source_conventional_data.R"))
 
 
     #1.3. bathymetry data
 #    bathymetry data downloaded from http://topex.ucsd.edu/cgi-bin/get_data.cgi (Topography option)
-Bathymetry_120=read.table("C:/Matias/Data/Mapping/get_data112_120.cgi")
-Bathymetry_138=read.table("C:/Matias/Data/Mapping/get_data120.05_138.cgi")
+Bathymetry_120=read.table(handl_OneDrive("Data/Mapping/get_data112_120.cgi"))
+Bathymetry_138=read.table(handl_OneDrive("Data/Mapping/get_data120.05_138.cgi"))
 Bathymetry=rbind(Bathymetry_120,Bathymetry_138)
 
 
@@ -236,7 +236,7 @@ Tabl1.matrix=merge(Tabl1.matrix,Species.Codes[,1:2],by="Species")
 Tabl1.matrix$N.rel=as.numeric(as.character(Tabl1.matrix$N.rel))
 Tabl1.matrix=Tabl1.matrix[order(-Tabl1.matrix$N.rel),]
 
-setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
+setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
 write.csv(Tabl1.matrix,"Paper/Table.A1.csv",row.names=F)
 
 #word table
@@ -289,7 +289,7 @@ tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
 # Early exports -----------------------------------------------------------
 
 #export data for mark recapture analysis
-write.csv(Tagging,"C:/Matias/Analyses/Data_outs/Tagging_conventional.data.csv",row.names=F)
+write.csv(Tagging,handl_OneDrive("Analyses/Data_outs/Tagging_conventional.data.csv"),row.names=F)
 
  
 #export data for Sarah Jakobs analysis
@@ -298,7 +298,7 @@ if(do.Sarah)
 {
   Sarah.J=subset(Tagging,Species=="GN")
   Sarah.J= Sarah.J %>% select (-c(Areas, Areas.rec,Taxa,CAES_Code,Effort,Reporting,Valid.Rec))
-  write.csv(Sarah.J,"C:/Matias/Students/Sarah Jakobs/Data/Conv_tag.csv",row.names=F)
+  write.csv(Sarah.J,handl_OneDrive("Students/Sarah Jakobs/Data/Conv_tag.csv"),row.names=F)
 }
 
 #export data for Colin's mpa analysis
@@ -313,7 +313,7 @@ if(do.Colin)
                           Lat.rels,Long.rels,Lat.rec,Long.rec,
                           Day.rel,Mn.rel,Yr.rel,Day.rec,Mn.rec,Yr.rec))
   names(Colin.D)[match("Tag.no",names(Colin.D))]="TagID"
-  write.csv(Colin.D,"C:/Matias/Data/Tagging/Conventional_tagging/data_for_Colin/Colin_conv_tag.csv",row.names=F)
+  write.csv(Colin.D,handl_OneDrive("Data/Tagging/Conventional_tagging/data_for_Colin/Colin_conv_tag.csv"),row.names=F)
   
 }
 
@@ -693,12 +693,12 @@ if(do.Fig.A1=="YES")
 {
   #Shark zones
   library(rgdal)
-  JA_Northern_Shark=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/JA_Northern_Shark.shp", layer="JA_Northern_Shark") 
-  WA_Northern_Shark=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/NorthCoastShark_s43.shp", layer="NorthCoastShark_s43") 
-  WA_Northern_Shark_2=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/NorthWestCoastShark_s43.shp", layer="NorthWestCoastShark_s43") 
-  SDGDLL_zone1=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/SDGDLL_zone1.shp", layer="SDGDLL_zone1") 
-  SDGDLL_zone2=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/SDGDLL_zone2.shp", layer="SDGDLL_zone2") 
-  WCDGDLL=readOGR("C:/Matias/Data/Mapping/Shark_shape_files/WCDGDLL.shp", layer="WCDGDLL") 
+  JA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/JA_Northern_Shark.shp"), layer="JA_Northern_Shark") 
+  WA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthCoastShark_s43.shp"), layer="NorthCoastShark_s43") 
+  WA_Northern_Shark_2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthWestCoastShark_s43.shp"), layer="NorthWestCoastShark_s43") 
+  SDGDLL_zone1=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone1.shp"), layer="SDGDLL_zone1") 
+  SDGDLL_zone2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone2.shp"), layer="SDGDLL_zone2") 
+  WCDGDLL=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/WCDGDLL.shp"), layer="WCDGDLL") 
   
   Y=range.lat
   Y[1]=-39
@@ -1060,7 +1060,7 @@ for (i in 1:length(Pop.din.sp))
   mal=subset(a,Sex=="M")
   YR.rec=sort(unique(a$Yr.rec))
   
-  tiff(file=paste("C:/Matias/Analyses/Conventional tagging/General movement/outputs/Maps.for.pop.dyn/",Pop.din.sp[i],".tiff",sep=""),
+  tiff(file=paste(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs/Maps.for.pop.dyn/"),Pop.din.sp[i],".tiff",sep=""),
        width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
   
   par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
@@ -1194,7 +1194,7 @@ for(i in 1:length(Store.group))
 # Export Data for Population modelling------------------------------------------------------------------
 
   #individual based model
-setwd("C:/Matias/Analyses/Data_outs")
+setwd(handl_OneDrive("Analyses/Data_outs"))
 for(i in 1:length(Pop.din.sp))
 {
   a=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(DaysAtLarge) & !is.na(Rec.zone),
@@ -1208,7 +1208,7 @@ for(i in 1:length(Pop.din.sp))
   #export data for mapping
   if(Pop.din.sp[i]%in% c("GM","WH"))
   {
-    HnDDl="C:/Matias/Analyses/Movement rate estimation/Joint.estim_ind.base.mod/Show Gummy and whiskery outputs/"
+    HnDDl=handl_OneDrive("Analyses/Movement rate estimation/Joint.estim_ind.base.mod/Show Gummy and whiskery outputs/")
     a=subset(Tagging.pop.din,Species==Pop.din.sp[i] & DaysAtLarge>=30 & !is.na(Rec.zone),
              select=c(Tag.no,DaysAtLarge,Lat.rels,Long.rels,Lat.rec,Long.rec,Rel.zone,Rec.zone))
     write.csv(a,paste(HnDDl,Pop.din.sp[i],"_Raw.Conv.Tag.csv",sep=""),row.names=F)
@@ -1217,7 +1217,7 @@ for(i in 1:length(Pop.din.sp))
 }
 
   #Other stuff
-setwd("C:/Matias/Data/Tagging/Pop dyn model/Conventional")
+setwd(handl_OneDrive("Data/Tagging/Pop dyn model/Conventional"))
 for(i in 1:length(Store.group))
 {
   a=Store.group[[i]]
@@ -1265,7 +1265,7 @@ for(i in 1:length(Store.group.size))
       ifelse(names(Store.group)[i]=='WH','Whiskery shark',
       ifelse(names(Store.group)[i]=='GM','Gummy shark',
       ifelse(names(Store.group)[i]=='TK','Sandbar shark',NA))))
-   for(p in 1:length(a)) write.csv(a[[p]],paste('C:/Matias/Analyses/Data_outs/',NmS,'/',NmS,"_Con_tag_",names(a)[p],"_","Conv.Tag_size.csv",sep=""),row.names=F)
+   for(p in 1:length(a)) write.csv(a[[p]],paste(handl_OneDrive('Analyses/Data_outs/'),NmS,'/',NmS,"_Con_tag_",names(a)[p],"_","Conv.Tag_size.csv",sep=""),row.names=F)
 }
 
 
@@ -1274,7 +1274,7 @@ for(i in 1:length(Store.group.size))
 do.paper=TRUE
 if(do.paper)
 {
-  setwd("C:/Matias/Analyses/Conventional tagging/General movement/outputs")
+  setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
   
   #keep recaptures only with data on date and position of release and recapture
   All.rel.Tagging=Tagging
