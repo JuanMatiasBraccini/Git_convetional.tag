@@ -84,6 +84,12 @@ names(size.mat)=names(size.birth)=c("Sandbar shark","Dusky shark","Gummy shark",
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
 
+Growth.pars=list(TK=c(k=0.04, FLinf=244, Lo=42.5),
+                 BW=c(k=0.0367, FLinf=374, Lo=75),
+                 GM=c(k=0.123, FLinf=202, Lo=33),
+                 WH=c(k=0.369, FLinf=121, Lo=25))
+
+
 ###### MANIPULATE DATA ############
 
 #Use only sharks tagged in WA
@@ -132,6 +138,72 @@ Tagging$CAP_FL=with(Tagging,
           ifelse(Species=="GM" & CAP_FL<25,NA,
           CAP_FL)))))
 
+
+#Recalculate FL @ capture using growht model due to uncertain size measures by reporting fishers
+vonB.fun=function(Lo,Linf,k,t) Lo+(Linf-Lo)*(1-exp(-k*t))
+vonB_rev.fun=function(Lo,Linf,k,L) -log(1-((L-Lo)/(Linf-Lo)))/k
+
+
+a=vonB.fun(Lo,Linf,k,3)
+vonB_rev.fun(Lo,Linf,k,a)
+
+fn.get.FL=function(FL.init,k,Linf,Lo,delta.t)
+{
+  Size.at.capture=NA
+  if(!is.na(FL.init))
+  {
+    #1. Get age from release FL
+    Age.at.release=vonB_rev.fun(Lo,Linf,k,FL.init)
+    
+    #2. Get age at recapture
+    Age.at.capture=Age.at.release+delta.t
+    
+    #3. Get size at recapture
+    Size.at.capture=vonB.fun(Lo,Linf,k,Age.at.capture)
+  }
+
+  
+  return(Size.at.capture)
+}
+Tagging=Tagging%>%
+          mutate(CAP_FL.ori=CAP_FL,
+                 CAP_FL=case_when(Species=="TK" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
+                                                                                            k=Growth.pars$TK[1],
+                                                                                            Linf=Growth.pars$TK[2],
+                                                                                            Lo=Growth.pars$TK[3],
+                                                                                            delta.t=DaysAtLarge/365),
+                                  Species=="BW" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
+                                                                                            k=Growth.pars$BW[1],
+                                                                                            Linf=Growth.pars$BW[2],
+                                                                                            Lo=Growth.pars$BW[3],
+                                                                                            delta.t=DaysAtLarge/365),
+                                  Species=="GM" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
+                                                                                            k=Growth.pars$GM[1],
+                                                                                            Linf=Growth.pars$GM[2],
+                                                                                            Lo=Growth.pars$GM[3],
+                                                                                            delta.t=DaysAtLarge/365),
+                                  Species=="WH" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
+                                                                                            k=Growth.pars$WH[1],
+                                                                                            Linf=Growth.pars$WH[2],
+                                                                                            Lo=Growth.pars$WH[3],
+                                                                                            delta.t=DaysAtLarge/365),
+                                  TRUE ~ CAP_FL))
+                   
+#Relative FL
+Tagging=Tagging%>%
+  mutate(Rel_FL.relative=case_when(Species=="TK"~Rel_FL/(1.07*Growth.pars$TK[2]),
+                                   Species=="BW"~Rel_FL/(1.07*Growth.pars$BW[2]),
+                                   Species=="GM"~Rel_FL/(1.07*Growth.pars$GM[2]),
+                                   Species=="WH"~Rel_FL/(1.07*Growth.pars$WH[2]),
+                                   TRUE~0),
+         CAP_FL.relative=case_when(Species=="TK"~CAP_FL/(1.07*Growth.pars$TK[2]),
+                                   Species=="BW"~CAP_FL/(1.07*Growth.pars$BW[2]),
+                                   Species=="GM"~CAP_FL/(1.07*Growth.pars$GM[2]),
+                                   Species=="WH"~CAP_FL/(1.07*Growth.pars$WH[2]),
+                                   TRUE~0))
+
+  
+  
 #Convert all factors to character 
 Tagging %>% mutate(across(where(is.factor), as.character)) -> Tagging
 
@@ -1272,7 +1344,7 @@ for(i in 1:length(Store.group.size))
 
 
 # Analysis of recapture data only for paper-----------------------------------------
-do.paper=TRUE
+do.paper=FALSE
 if(do.paper)
 {
   setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
@@ -2770,6 +2842,7 @@ if(do.paper)
   
   #Explore
   library(ggpubr)
+  do.explr=FALSE
   fun.explr=function(d,bin)
   {
     d=d%>%
@@ -2791,15 +2864,26 @@ if(do.paper)
       geom_histogram(show.legend = FALSE)+ 
       theme(legend.position="top",legend.title=element_blank())
     
+    # p=d%>%
+    #   ggplot(aes(x=Rel_FL, y=dist.km, colour=COMMON_NAME)) + 
+    #   geom_point()+  geom_smooth(method = "loess") +
+    #   theme(legend.position="top",legend.title=element_blank())
+    
     p=d%>%
-      ggplot(aes(x=Rel_FL, y=dist.km, colour=COMMON_NAME)) + 
+      ggplot(aes(x=Rel_FL.relative, y=dist.km, colour=COMMON_NAME)) + 
       geom_point()+  geom_smooth(method = "loess") +
       theme(legend.position="top",legend.title=element_blank())
     
     p0=d%>%
-      ggplot(aes(x=Rel_FL, y=ROM, colour=COMMON_NAME)) + 
-      geom_point(show.legend = FALSE)+  geom_smooth(method = "loess") +
+      ggplot(aes(x=CAP_FL.relative, y=dist.km, colour=COMMON_NAME)) + 
+      geom_point()+  geom_smooth(method = "loess") +
       theme(legend.position="top",legend.title=element_blank())
+    
+        
+    # p0=d%>%
+    #   ggplot(aes(x=Rel_FL, y=ROM, colour=COMMON_NAME)) + 
+    #   geom_point(show.legend = FALSE)+  geom_smooth(method = "loess") +
+    #   theme(legend.position="top",legend.title=element_blank())
     
     p1=d%>%
       ggplot(aes(x=Rel_FL.bin, y=dist.km, fill=COMMON_NAME)) + 
@@ -2845,9 +2929,9 @@ if(do.paper)
     ggexport(multi.page, filename = "explore_linear_model.pdf")
     
   }
-  fun.explr(d=Tagging%>%filter(Species%in%SPECIES),bin=10)
+  if(do.explr) fun.explr(d=Tagging%>%filter(Species%in%SPECIES),bin=10)
   
-  #Fit model
+  #Fit model 
   library(ciTools)
   library(multcomp)
   
@@ -2973,8 +3057,7 @@ if(do.paper)
       rename(!!vars)
   }
   
-  Species.size=FALSE #prelim anal showed non significant interaction
-  
+
   #1. Displacement 
   do.displacement=TRUE
   if(do.displacement)
@@ -2989,72 +3072,72 @@ if(do.paper)
     Dat$Areas=as.factor(Dat$Areas)
     
     
-    
-    if(!isTRUE(Species.size))Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species+Areas+Log.Rel_FL+Sex+CONDITION,
-                                                  family=gaussian(link = "identity"),data=Dat) 
-    if(Species.size) Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species*Log.Rel_FL+Areas+Sex+CONDITION,
-                                          family=gaussian(link = "identity"),data=Dat) 
-    
+    #Test Species effect
+    Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species,family=gaussian(link = "identity"),data=Dat) 
     Post.hoc.comp.dist=summary(glht(Distance.km.glm, mcp(Species="Tukey")))
     
+    #Test terms within each species
+    Distance.km.glm.by.species=vector('list',length(SPECIES))
+    names(Distance.km.glm.by.species)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      Distance.km.glm.by.species[[s]]=glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Areas+CAP_FL.relative+Sex+CONDITION,family=gaussian(link = "identity"),
+                                          data=Dat%>%filter(Species==SPECIES[s]))
+    }
     
     #diagnostic plots (fit check)
     tiff(file="Paper/GLM.diagnostics.displacement.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
     fn.plot.diag(Distance.km.glm,"Lognormal error ","Displacement km")
     dev.off()
-    
-    stats.Distance.km.glm=summary(Distance.km.glm)            
+    for(s in 1:length(SPECIES))
+    {
+      tiff(file=paste("Paper/GLM.diagnostics.displacement_",SPECIES[s],'.tiff',sep=''),
+           width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+      fn.plot.diag(Distance.km.glm.by.species[[s]],"Lognormal error ","Displacement km")
+      dev.off()
+    }
     
     #terms signficance    
-    Sig.Distance.km.glm=anova(Distance.km.glm,test='Chisq')		
-    
+    stats.Distance.km.glm=summary(Distance.km.glm) 
+    Sig.Distance.km.glm=anova(Distance.km.glm,test='Chisq')	
     BiasCor.fn=function(Median,SE) biasCorr <- exp(Median+(SE^2)/2) #function for bias corrected mean in normal space
-    
-    
-    #combine anova and coefficients for publication
     Coefs=as.data.frame(stats.Distance.km.glm$coefficients)
     Coefs$Terms=rownames(Coefs)
-    Just.coef=Coefs[,1] 
-    names(Just.coef)=rownames(Coefs)
-    Just.coef[c(2,11)]
+    #Just.coef=Coefs[,1] 
+    #names(Just.coef)=rownames(Coefs)
+    #Just.coef[c(2,11)]
     ANOVA=term.dev.explained(MOD=Distance.km.glm)
     write.csv(ANOVA,"Paper/ANOVA.displacement.csv",row.names=F)
+    
+    for(s in 1:length(SPECIES))
+    {
+      ANOVA=term.dev.explained(MOD=Distance.km.glm.by.species[[s]])
+      write.csv(ANOVA,paste("Paper/ANOVA.displacement_",SPECIES[s],'.csv',sep=''),row.names=F)
+      
+    }
 
-    #Predict significant terms
-    if(!isTRUE(Species.size))
-    {
-      NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-                          Species=factor(SPECIES,levels=levels(Dat$Species)),
-                          Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                          Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                          CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-    }
-    if(Species.size)
-    {
-      NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-                          Species=factor(SPECIES,levels=levels(Dat$Species)),
-                          Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                          Log.Rel_FL=log(seq(min(10*floor(Dat$Rel_FL/10)),max(Dat$Rel_FL),by=10)),
-                          Sex=factor("F",levels=levels(Dat$Sex)),
-                          CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-    }
+    #Predict significant terms (size)
+    NewData=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
+                        Species=factor(SPECIES,levels=levels(Dat$Species)))
     NewData.dist=NewData
-    
     NewData.dist=add_ci(NewData.dist,Distance.km.glm,alpha=0.05,response=TRUE)
-    
     Pred.dist.travel=predict(Distance.km.glm,newdata=NewData,type="response",se.fit=T)
-    #Pred.dist.travel$fit=BiasCor.fn(Pred.dist.travel$fit,Pred.dist.travel$se.fit)
     
-    #   #FL-Species
-    # FL.range.pred=80:160
-    # Pred_FL_SP.dist.trav=expand.grid(Log.DaysAtLarge=log(mean(Dat$DaysAtLarge)),
-    #                     Species=factor(SPECIES,levels=levels(Dat$Species)),
-    #                     Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-    #                     Log.Rel_FL=log(FL.range.pred),Sex=factor("F",levels=levels(Dat$Sex)),
-    #                     CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-    # ss=predict(Distance.km.glm,newdata=Pred_FL_SP.dist.trav,type="response",se.fit=T)
-    # Pred_FL_SP.dist.trav$pred=ss$fit
-    # Pred_FL_SP.dist.trav$pred.se=ss$se.fit
+    Pred.dist.travel.by.species=vector('list',length(SPECIES))
+    names(Pred.dist.travel.by.species)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+        d=Dat%>%filter(Species==SPECIES[s])
+        NewData=data.frame(CAP_FL.relative=seq(round(min(d$CAP_FL.relative,na.rm=T),2),
+                                               round(max(d$CAP_FL.relative,na.rm=T),2),by=.01),
+                           Log.DaysAtLarge=log(mean(d$DaysAtLarge)),
+                           Areas=factor("JASDGDLF.zone1",levels=levels(d$Areas)),
+                           Sex=factor("F",levels=levels(d$Sex)),
+                           CONDITION=factor("1",levels=levels(d$CONDITION)))
+         preds=predict(Distance.km.glm.by.species[[s]],newdata=NewData,type="response",se.fit=T)
+         Pred.dist.travel.by.species[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
+      }
+
   }
   
   
@@ -3071,60 +3154,71 @@ if(do.paper)
     Dat$Areas=as.character(Dat$Areas)
     Dat$Areas=as.factor(Dat$Areas)
     
-    if(!isTRUE(Species.size)) Speed.glm<-glm(log(ROM)~ Species+Areas+Log.Rel_FL+Sex+CONDITION,
-                                             family=gaussian(link = "identity"),data=Dat) 
-    if(Species.size) Speed.glm<-glm(log(ROM)~ Species*Log.Rel_FL+Areas+Sex+CONDITION,
-                                    family=gaussian(link = "identity"),data=Dat) 
     
-    
+    #Test Species effect
+    Speed.glm<-glm(log(ROM)~Species,family=gaussian(link = "identity"),data=Dat) 
     Post.doc.comp.ROM=summary(glht(Speed.glm, mcp(Species="Tukey")))
+    
+    #Test terms within each species
+    Speed.glm.by.species=vector('list',length(SPECIES))
+    names(Speed.glm.by.species)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      Speed.glm.by.species[[s]]=glm(log(ROM)~Areas+CAP_FL.relative+Sex+CONDITION,family=gaussian(link = "identity"),
+                                    data=Dat%>%filter(Species==SPECIES[s]))
+    }
     
     #diagnostic plots (fit check)
     tiff(file="Paper/GLM.diagnostics.Speed.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
     fn.plot.diag(Speed.glm,"Lognormal error ","ROM")
     dev.off()
+    for(s in 1:length(SPECIES))
+    {
+      tiff(file=paste("Paper/GLM.diagnostics.Speed_",SPECIES[s],'.tiff',sep=''),
+           width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+      fn.plot.diag(Speed.glm.by.species[[s]],"Lognormal error ","Displacement km")
+      dev.off()
+    }
     
-    stats.speed.glm=summary(Speed.glm)            
     
     #terms signficance    
-    Sig.speed.glm=anova(Speed.glm,test='Chisq')  	
-    
-    
-    #combine anova and coefficients for publication
+    stats.speed.glm=summary(Speed.glm) 
+    Sig.speed.glm=anova(Speed.glm,test='Chisq')	
     Coefs=as.data.frame(stats.speed.glm$coefficients)
     Coefs$Terms=rownames(Coefs)
-    Just.coef=Coefs[,1] 
-    names(Just.coef)=rownames(Coefs)
-    Just.coef[10]
     ANOVA=term.dev.explained(MOD=Speed.glm)
     write.csv(ANOVA,"Paper/ANOVA.speed.csv",row.names=F)
     
-  
-    #Predict significant terms
-    if(!isTRUE(Species.size))
+    for(s in 1:length(SPECIES))
     {
-      NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
-                          Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                          Log.Rel_FL=log(mean(Dat$Rel_FL)),Sex=factor("F",levels=levels(Dat$Sex)),
-                          CONDITION=factor("1",levels=levels(Dat$CONDITION)))
+      ANOVA=term.dev.explained(MOD=Speed.glm.by.species[[s]])
+      write.csv(ANOVA,paste("Paper/ANOVA.speed_",SPECIES[s],'.csv',sep=''),row.names=F)
+      
     }
-    if(Species.size)
-    {
-      NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)),
-                          Areas=factor("JASDGDLF.zone1",levels=levels(Dat$Areas)),
-                          Log.Rel_FL=log(seq(min(10*floor(Dat$Rel_FL/10)),max(Dat$Rel_FL),by=10)),
-                          Sex=factor("F",levels=levels(Dat$Sex)),
-                          CONDITION=factor("1",levels=levels(Dat$CONDITION)))
-    }
+    
+    #Predict significant terms (size)
+    NewData=expand.grid(Species=factor(SPECIES,levels=levels(Dat$Species)))
     NewData.rom=NewData
     NewData.rom=add_ci(NewData.rom,Speed.glm,alpha=0.05,response=TRUE)
-    
     Pred.speed=predict(Speed.glm,newdata=NewData,type="response",se.fit=T)
-    #Pred.speed$fit=BiasCor.fn(Pred.speed$fit,Pred.speed$se.fit)
+    
+    Pred.speed.by.species=vector('list',length(SPECIES))
+    names(Pred.speed.by.species)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      d=Dat%>%filter(Species==SPECIES[s])
+      NewData=data.frame(CAP_FL.relative=seq(round(min(d$CAP_FL.relative,na.rm=T),2),
+                                             round(max(d$CAP_FL.relative,na.rm=T),2),by=.01),
+                         Areas=factor("JASDGDLF.zone1",levels=levels(d$Areas)),
+                         Sex=factor("F",levels=levels(d$Sex)),
+                         CONDITION=factor("1",levels=levels(d$CONDITION)))
+      preds=predict(Speed.glm.by.species[[s]],newdata=NewData,type="response",se.fit=T)
+      Pred.speed.by.species[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
+    }
     
   }
   
-  
+
   #3. Days at large GLM
   do.days.large=FALSE
   if(do.days.large)
@@ -3207,7 +3301,7 @@ if(do.paper)
   }
   
   
-  #plot predictions
+  #---plot predictions
   fn.bar.inter=function(what,what.se1,what.se2,CLO,YLIM,BY)
   {
     what=rbind(c(what[5:7],0),what[1:4],c(0,what[8:10]))
@@ -3282,25 +3376,64 @@ if(do.paper)
     box()
   }
   
-  fn.bar.st=function(Mean,lowCI,upCI,CLO,DO.axis,BY)
-  {
-    
-    what.se1=lowCI/mean(Mean)  #standardise to mean of 1
-    what.se2=upCI/mean(Mean)
-    what=Mean/mean(Mean)   
-    
-    YLIM=c(0,max(what.se2)*1.05)
-    mp <- barplot(what, axes=FALSE, axisnames=FALSE, ylim=YLIM,col=CLO, main="", xlab="", ylab="")
-    segments(c(mp), what.se1, c(mp) , what.se2,lwd=2)
-    axis(2, at=seq(YLIM[1], YLIM[2], by=BY),cex.axis=1.5)
-    axis(1, labels=c("","","",""), at = mp)
-    if(DO.axis=="YES")axis(1, labels=c("Sandbar","Dusky","Gummy","Whiskery"), at = mp,cex.axis=1.35)
-    box()
-  }
+
   
   
-  if(!isTRUE(Species.size))
+  #Differences among species
+  do.ggplot=TRUE
+  if(do.ggplot)
   {
+    fn.bar.st=function(Mean,lowCI,upCI,NM)
+    {
+      
+      what.se1=lowCI/mean(Mean)  #standardise to mean of 1
+      what.se2=upCI/mean(Mean)
+      what=Mean/mean(Mean)   
+      
+      data.frame(Mean=what,Up=what.se2,Low=what.se1,
+                 Species=factor(c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark"),
+                                levels=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")))%>%
+        ggplot(aes(x=Species,y=Mean, fill=Species)) +
+        geom_bar(stat="identity") +
+        geom_errorbar(aes(ymin=Low, ymax=Up),width=0.4)+theme_bw()+
+        theme(legend.position = "none",
+              axis.title = element_text(size=18),
+              axis.text= element_text(size=14))+
+        ylab(NM)+xlab('')
+    } 
+    
+    p1=fn.bar.st(Mean=exp(NewData.dist$pred),
+                 lowCI=exp(NewData.dist$LCB0.025),
+                 upCI=exp(NewData.dist$UCB0.975),
+                 NM="Relative displacement")
+    
+    p2=fn.bar.st(Mean=exp(NewData.rom$pred),
+                 lowCI=exp(NewData.rom$LCB0.025),
+                 upCI=exp(NewData.rom$UCB0.975),
+                 NM="Relative rate of movement")
+    
+    plot_list=list(p1,p2)
+    multi.page <-ggarrange(plotlist=plot_list, nrow = 2, ncol = 1)
+    ggsave("Paper/Figure4.tiff", width = 8,height = 10, dpi = 300,compression = "lzw")
+ 
+    
+  }else
+  {
+    fn.bar.st=function(Mean,lowCI,upCI,CLO,DO.axis,BY)
+    {
+      
+      what.se1=lowCI/mean(Mean)  #standardise to mean of 1
+      what.se2=upCI/mean(Mean)
+      what=Mean/mean(Mean)   
+      
+      YLIM=c(0,max(what.se2)*1.05)
+      mp <- barplot(what, axes=FALSE, axisnames=FALSE, ylim=YLIM,col=CLO, main="", xlab="", ylab="")
+      segments(c(mp), what.se1, c(mp) , what.se2,lwd=2)
+      axis(2, at=seq(YLIM[1], YLIM[2], by=BY),cex.axis=1.5)
+      axis(1, labels=c("","","",""), at = mp)
+      if(DO.axis=="YES")axis(1, labels=c("Sandbar","Dusky","Gummy","Whiskery"), at = mp,cex.axis=1.35)
+      box()
+    }
     tiff(file="Paper/Figure4.tiff",width = 2000, height = 2400,units = "px", res = 300,compression = "lzw")
     par(mfcol=c(2,1),mai=c(.35,.7,.06,.125),oma=c(.2,1.75,.01,.01),las=1,mgp=c(1.35,.8,0))
     NN=4
@@ -3339,32 +3472,63 @@ if(do.paper)
     
   }
   
-  if(Species.size)
+  
+  
+  #Size effect
+  n = length(SPECIES)
+  gg_color_hue <- function(n)
   {
-    plt.fn=function(d,fit,se)
+    hues = seq(15, 375, length = n + 1)
+    hcl(h = hues, l = 65, c = 100)[1:n]
+  }
+  cols = gg_color_hue(n)
+  names(cols)=names(SPECIES)
+  cols <- c("Sandbar shark" = "red", "Dusky shark" = "blue", "Gummy shark" = "darkgreen", "Whiskery shark" = "orange")
+  
+  
+  plt.fn=function(d,NM,DROP)
+  {
+    dd=vector('list',length(d))
+    for(s in 1:length(d))
     {
-      d=cbind(d,fit,se)%>%
+      dd[[s]]=cbind(d[[s]]$NewData,fit=d[[s]]$fit,se=d[[s]]$se.fit)%>%
         mutate(low.95=fit-1.96*se,
                up.95=fit+1.96*se,
                fit.rel=fit/mean(fit),
                low.95.rel=low.95/mean(fit),
                up.95.rel=up.95/mean(fit),
-               FL=exp(Log.Rel_FL))%>%
-        arrange(Species)
-      
-      d%>%
-        ggplot(aes(FL,fit.rel, colour = factor(Species)))+
-        geom_point()+
-        geom_errorbar(aes(ymin=low.95.rel, ymax=up.95.rel), width=2)
+               FL=CAP_FL.relative,
+               Species=names(d)[s])
     }
+    dd=do.call(rbind,dd)%>%
+      arrange(Species)%>%
+      left_join(Species.Codes,by="Species")%>%
+      filter(!Species%in%DROP)%>%
+      mutate(COMMON_NAME=factor(COMMON_NAME,
+                                levels=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")),
+             FL=ifelse(Species=="BW",FL*1.01,FL))
     
-    plt.fn(d=NewData.dist,fit=Pred.dist.travel$fit,se=Pred.dist.travel$se.fit)
-    
-    plt.fn(d=NewData.rom,fit=Pred.speed$fit,se=Pred.speed$se.fit)
-    
-    
-    
+    dd%>%
+      ggplot(aes(FL,fit.rel, color=COMMON_NAME))+
+      geom_point(size = 2.5)+
+      geom_errorbar(aes(ymin=low.95.rel, ymax=up.95.rel))+
+      ylab(NM)+xlab("Relative fork length at capture")+
+      theme_bw()+
+      theme(legend.title = element_blank(),
+            legend.key = element_rect(colour = NA, fill = NA),
+            legend.justification = c(0.5,0.5),
+            legend.position = "top",
+            axis.title = element_text(size=18),
+            axis.text= element_text(size=14),
+            legend.text = element_text(size = 14))+scale_color_manual(values=cols)
   }
+  p1=plt.fn(d=Pred.dist.travel.by.species,NM="Relative displacement",DROP=c("GM","WH")) #don't show SP with NS effect
+  p2=plt.fn(d=Pred.speed.by.species,NM="Relative rate of movement",DROP=c("TK","WH"))
+  plot_list=list(p1,p2)
+  multi.page <-ggarrange(plotlist=plot_list, nrow = 2, ncol = 1)
+  ggsave("Paper/Figure5.tiff", width = 8,height = 9, dpi = 300,compression = "lzw")
+  
+  
   
   #--Bearing 
   Do.Bearing=FALSE
