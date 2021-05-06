@@ -3067,13 +3067,12 @@ if(do.paper)
     Dat$Sex=as.factor(Dat$Sex)
     Dat$CONDITION=as.factor(Dat$CONDITION)
     Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
-    Dat$Log.Rel_FL=log(Dat$Rel_FL)
     Dat$Areas=as.character(Dat$Areas)
     Dat$Areas=as.factor(Dat$Areas)
-    
+     
     
     #Test Species effect
-    Distance.km.glm<-glm(log(dist.trav_m/1000)~ Log.DaysAtLarge+Species,family=gaussian(link = "identity"),data=Dat) 
+    Distance.km.glm<-glm(log(dist.trav_m/1000)~ Species,family=gaussian(link = "identity"),data=Dat) 
     Post.hoc.comp.dist=summary(glht(Distance.km.glm, mcp(Species="Tukey")))
     
     #Test terms within each species
@@ -3138,6 +3137,20 @@ if(do.paper)
          Pred.dist.travel.by.species[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
       }
 
+    #Predict significant terms (zone)
+    Pred.dist.travel.by.species.zone=vector('list',length(SPECIES))
+    names(Pred.dist.travel.by.species.zone)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      d=Dat%>%filter(Species==SPECIES[s])
+      NewData=data.frame(CAP_FL.relative=mean(d$CAP_FL.relative,na.rm=T),
+                         Log.DaysAtLarge=log(mean(d$DaysAtLarge)),
+                         Areas=factor(unique(d$Areas),levels=unique(d$Areas)),
+                         Sex=factor("F",levels=levels(d$Sex)),
+                         CONDITION=factor("1",levels=levels(d$CONDITION)))
+      preds=predict(Distance.km.glm.by.species[[s]],newdata=NewData,type="response",se.fit=T)
+      Pred.dist.travel.by.species.zone[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
+    }
   }
   
   
@@ -3150,11 +3163,9 @@ if(do.paper)
     Dat$Sex=as.factor(Dat$Sex)
     Dat$CONDITION=as.factor(Dat$CONDITION)
     Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
-    Dat$Log.Rel_FL=log(Dat$Rel_FL)
     Dat$Areas=as.character(Dat$Areas)
     Dat$Areas=as.factor(Dat$Areas)
-    
-    
+ 
     #Test Species effect
     Speed.glm<-glm(log(ROM)~Species,family=gaussian(link = "identity"),data=Dat) 
     Post.doc.comp.ROM=summary(glht(Speed.glm, mcp(Species="Tukey")))
@@ -3216,6 +3227,21 @@ if(do.paper)
       Pred.speed.by.species[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
     }
     
+    #Predict significant terms (zone)
+    Pred.speed.by.species.zone=vector('list',length(SPECIES))
+    names(Pred.speed.by.species.zone)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      d=Dat%>%filter(Species==SPECIES[s])
+      NewData=data.frame(CAP_FL.relative=mean(d$CAP_FL.relative,na.rm=T),
+                         Log.DaysAtLarge=log(mean(d$DaysAtLarge)),
+                         Areas=factor(unique(d$Areas),levels=unique(d$Areas)),
+                         Sex=factor("F",levels=levels(d$Sex)),
+                         CONDITION=factor("1",levels=levels(d$CONDITION)))
+      preds=predict(Speed.glm.by.species[[s]],newdata=NewData,type="response",se.fit=T)
+      Pred.speed.by.species.zone[[s]]=list(NewData=NewData,fit=preds$fit,se.fit=preds$se.fit)
+    }
+
   }
   
 
@@ -3483,8 +3509,7 @@ if(do.paper)
   }
   cols = gg_color_hue(n)
   names(cols)=names(SPECIES)
-  cols <- c("Sandbar shark" = "red", "Dusky shark" = "blue", "Gummy shark" = "darkgreen", "Whiskery shark" = "orange")
-  
+
   
   plt.fn=function(d,NM,DROP)
   {
@@ -3528,6 +3553,47 @@ if(do.paper)
   multi.page <-ggarrange(plotlist=plot_list, nrow = 2, ncol = 1)
   ggsave("Paper/Figure5.tiff", width = 8,height = 9, dpi = 300,compression = "lzw")
   
+  
+  cols.zone=c("darkgoldenrod3","brown3","firebrick4")
+  names(cols.zone)=c("WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2")
+  
+  
+  plt.bar.fn=function(d,NM,DROP)
+  {
+    dd=vector('list',length(d))
+    for(s in 1:length(d))
+    {
+      dd[[s]]=cbind(d[[s]]$NewData,fit=d[[s]]$fit,se=d[[s]]$se.fit)%>%
+        mutate(low.95=fit-1.96*se,
+               up.95=fit+1.96*se,
+               fit.rel=fit/mean(fit),
+               low.95.rel=low.95/mean(fit),
+               up.95.rel=up.95/mean(fit),
+               FL=CAP_FL.relative,
+               Species=names(d)[s])
+    }
+    dd=do.call(rbind,dd)%>%
+      arrange(Species)%>%
+      left_join(Species.Codes,by="Species")%>%
+      filter(!Species%in%DROP)%>%
+      mutate(COMMON_NAME=factor(COMMON_NAME,
+                                levels=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")),
+             FL=ifelse(Species=="BW",FL*1.01,FL),
+             Areas=factor(as.character(Areas),levels=c("WCDGDLF","JASDGDLF.zone1","JASDGDLF.zone2")))
+    
+    dd%>%
+      ggplot(aes(x=Areas,y=fit.rel, fill=Areas)) +
+      geom_bar(stat="identity") +
+      geom_errorbar(aes(ymin=low.95.rel, ymax=up.95.rel),width=0.4)+theme_bw()+
+      ylab(NM)+xlab('')+
+      theme(legend.position = "none",
+            axis.title = element_text(size=18),
+            axis.text= element_text(size=14),
+            legend.text = element_text(size = 14))+
+      scale_fill_manual(values=cols.zone)
+  }
+  p3=plt.bar.fn(d=Pred.dist.travel.by.species.zone,NM="Relative displacement",DROP=c("GM","TK","BW")) 
+  p4=plt.bar.fn(d=Pred.speed.by.species.zone,NM="Relative rate of movement",DROP=c("GM","TK","BW")) 
   
   
   #--Bearing 
