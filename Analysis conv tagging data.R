@@ -140,12 +140,17 @@ Tagging$CAP_FL=with(Tagging,
 
 
 #Recalculate FL @ capture using growht model due to uncertain size measures by reporting fishers
+#Time at liberty
+Tagging$DATE_REL=as.Date( paste( Tagging$Yr.rel,Tagging$Mn.rel , Tagging$Day.rel , sep = "-" )  , format = "%Y-%m-%d" )
+Tagging$DATE_CAPTR=as.Date( paste( Tagging$Yr.rec,Tagging$Mn.rec , Tagging$Day.rec , sep = "-" )  , format = "%Y-%m-%d" )
+Tagging$DaysAtLarge=as.numeric(round((Tagging$DATE_CAPTR-Tagging$DATE_REL),0))
+Tagging$DaysAtLarge=with(Tagging,ifelse(DaysAtLarge<0,NA,DaysAtLarge))
+
+
 vonB.fun=function(Lo,Linf,k,t) Lo+(Linf-Lo)*(1-exp(-k*t))
 vonB_rev.fun=function(Lo,Linf,k,L) -log(1-((L-Lo)/(Linf-Lo)))/k
-
-
-a=vonB.fun(Lo,Linf,k,3)
-vonB_rev.fun(Lo,Linf,k,a)
+#a=vonB.fun(Lo,Linf,k,3)
+#vonB_rev.fun(Lo,Linf,k,a)  
 
 fn.get.FL=function(FL.init,k,Linf,Lo,delta.t)
 {
@@ -212,12 +217,6 @@ Tagging %>% mutate(across(where(is.factor), as.character)) -> Tagging
 Tagging=Tagging%>%
   mutate(Rel_FL.bin=as.character(10*floor(Rel_FL/10)),
          CAP_FL.bin=as.character(10*floor(CAP_FL/10)))
-
-#Time at liberty
-Tagging$DATE_REL=as.Date( paste( Tagging$Yr.rel,Tagging$Mn.rel , Tagging$Day.rel , sep = "-" )  , format = "%Y-%m-%d" )
-Tagging$DATE_CAPTR=as.Date( paste( Tagging$Yr.rec,Tagging$Mn.rec , Tagging$Day.rec , sep = "-" )  , format = "%Y-%m-%d" )
-Tagging$DaysAtLarge=as.numeric(round((Tagging$DATE_CAPTR-Tagging$DATE_REL),0))
-Tagging$DaysAtLarge=with(Tagging,ifelse(DaysAtLarge<0,NA,DaysAtLarge))
 
 Tagging=Tagging%>%
   mutate(YrsAtLarge.bin=round(DaysAtLarge/365))
@@ -355,7 +354,7 @@ Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
                    Rec.fl=ifelse(Rec.fl=='NA-NA','',Rec.fl))%>%
             rename('Size.range(cm).Release'=Rel.fl,
                    'Size.range(cm).Recapture'=Rec.fl)
-tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
+#tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
  
 
 
@@ -558,14 +557,14 @@ fn.inset1=function(XE,WHERE,PCHs,PiCCol,CiX,BGcol)
 fn.inset=function(WHERE)
 {
   par(fig=WHERE, new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
-  plotMap(worldLLhigh, xlim=c(108,range.long[2]), ylim=c(-36.5,-13),
-          col="grey20",bg="white", axes=F, xlab="", ylab="",
+  plotMap(worldLLhigh, xlim=c(108,155), ylim=c(-44,-10),
+          col="grey70",bg="white", axes=F, xlab="", ylab="",
           border="black",plt = NULL)
   
-  lines(c(129,129),c(-31.7,-14.99),col="grey95",lwd=1.5,lty=3) 
-  lines(c(129,129),c(-36.5,-31.7),lwd=1.5,lty=3)
-  text(122,-24,"Western",col="white",cex=.825,font=2)
-  text(122,-28,"Australia",col="white",cex=.825,font=2)
+  lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3) 
+  #lines(c(129,129),c(-36.5,-31.7),lwd=1.5,lty=3)
+  text(125,-23,"Western",col="black",cex=.7,font=2)
+  text(125,-27,"Australia",col="black",cex=.7,font=2)
   
   #text(133,-27,"South",col="white",cex=0.8,font=2)
   #text(133,-28.75,"Australia",col="white",cex=0.8,font=2)
@@ -609,9 +608,18 @@ Map2.fn=function(Spec,BKS,y)
                     ifelse(col==CUTS[2],Le.col[2],
                     ifelse(col==CUTS[3],Le.col[3],
                     NA))))
-  if(Spec=="TK")dat$Long.rels=with(dat,ifelse(Long.rels<114&Lat.rels>(-18),121,Long.rels))
+  if(Spec=="TK")
+  {
+    dat$Long.rels=with(dat,ifelse(Long.rels<114&Lat.rels>(-18),121,Long.rels))
+    dat$Long.rels=with(dat,ifelse(Long.rels<120.4& Long.rels>119.4 & Lat.rels>(-25.8) & Lat.rels<(-24.8),113.58,Long.rels))
+    dat$Long.rels=with(dat,ifelse(Long.rels<115.08& Long.rels>114.23 & Lat.rels>(-23.5) & Lat.rels<(-22.78),113.19,Long.rels))
     
-    
+  }
+   if(Spec=="BW")
+   {
+     dat$Long.rels=with(dat,ifelse(Long.rels<115.53& Long.rels>114.56 & Lat.rels>(-28.55) & Lat.rels<(-27.78),113.9,Long.rels))
+     
+   }
   
   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
           border="black",bg="white",plt = NULL)
@@ -622,7 +630,7 @@ Map2.fn=function(Spec,BKS,y)
   if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
                         labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.2) 
   legend(107,-10,y,bty='n',cex=1.05,xjust=0) 
-  if(TIT=="YES") mtext("Released",3,line=0,cex=1.2)
+  if(TIT=="YES") mtext("Release",3,line=0,cex=1.2)
   
   
   plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
@@ -631,7 +639,7 @@ Map2.fn=function(Spec,BKS,y)
   fn.axis()   
   if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
                         labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.1) 
-  if(TIT=="YES") mtext("Recaptured",3,line=0,cex=1.2)
+  if(TIT=="YES") mtext("Recapture",3,line=0,cex=1.2)
 }
 fn.lg=function(x)
 {
@@ -3326,6 +3334,50 @@ if(do.paper)
     
   }
   
+  #4. Seasonal and ontogey
+  do.season_ontogeny=FALSE
+  if(do.season_ontogeny)
+  {
+    Dat=subset(Tagging.mySpecies,dist.trav_m>1 & Rel_FL>0 & CONDITION%in%c("1","2","3"))
+    Dat$Species=as.factor(Dat$Species)
+    Dat$Sex=as.factor(Dat$Sex)
+    Dat$CONDITION=as.factor(Dat$CONDITION)
+    Dat$Log.DaysAtLarge=log(Dat$DaysAtLarge)
+    Dat$Areas=as.character(Dat$Areas)
+    Dat$Areas=as.factor(Dat$Areas)
+    Dat=Dat%>%
+      mutate(Rel.season=case_when(Mn.rel%in%c(12,1,2)~"summer",
+                                  Mn.rel%in%c(3,4,5)~"autumn",
+                                  Mn.rel%in%c(6,7,8)~"winter",
+                                  Mn.rel%in%c(9,10,11)~"spring"),
+             Rec.season=case_when(Mn.rec%in%c(12,1,2)~"summer",
+                                  Mn.rec%in%c(3,4,5)~"autumn",
+                                  Mn.rec%in%c(6,7,8)~"winter",
+                                  Mn.rec%in%c(9,10,11)~"spring"),
+             Rel.season=factor(Rel.season,levels=c("summer","autumn","winter","spring")),
+             Rec.season=factor(Rec.season,levels=c("summer","autumn","winter","spring")),
+             Life.stage=case_when(Species=='TK' & CAP_FL< size.mat[1] ~"juvenile",
+                                  Species=='TK' & CAP_FL>= size.mat[1] ~"adult",
+                                  Species=='BW' & CAP_FL< size.mat[2] ~"juvenile",
+                                  Species=='BW' & CAP_FL>= size.mat[2] ~"adult",
+                                  Species=='GM' & CAP_FL< size.mat[3] ~"juvenile",
+                                  Species=='GM' & CAP_FL>= size.mat[3] ~"adult",
+                                  Species=='WH' & CAP_FL< size.mat[4] ~"juvenile",
+                                  Species=='WH' & CAP_FL>= size.mat[4] ~"adult"),
+             Life.stage=factor(Life.stage,levels=c("juvenile","adult")))
+    
+    
+    
+    #Test terms within each species
+    Distance.km.glm.by.species_season=vector('list',length(SPECIES))
+    names(Distance.km.glm.by.species_season)=SPECIES
+    for(s in 1:length(SPECIES))
+    {
+      Distance.km.glm.by.species_season[[s]]=glm(log(dist.trav_m/1000)~ Rec.season+Rel.season,family=gaussian(link = "identity"),
+                                                 data=Dat%>%filter(Species==SPECIES[s]))
+    }
+    
+  }
   
   #---plot predictions
   fn.bar.inter=function(what,what.se1,what.se2,CLO,YLIM,BY)
@@ -3537,7 +3589,7 @@ if(do.paper)
       ggplot(aes(FL,fit.rel, color=COMMON_NAME))+
       geom_point(size = 2.5)+
       geom_errorbar(aes(ymin=low.95.rel, ymax=up.95.rel))+
-      ylab(NM)+xlab("Relative fork length at capture")+
+      ylab(NM)+xlab("Relative size at recapture")+
       theme_bw()+
       theme(legend.title = element_blank(),
             legend.key = element_rect(colour = NA, fill = NA),
