@@ -20,7 +20,7 @@ ONLINE="YES"  #Switch to YES to update Changes done by dani
 if(!exists('handl_OneDrive')) source('C:/Users/myb/OneDrive - Department of Primary Industries and Regional Development/Matias/Analyses/SOURCE_SCRIPTS/Git_other/handl_OneDrive.R')
 
 
-setwd(handl_OneDrive("Analyses/Conventional tagging"))  #function for settting the working directory
+setwd(handl_OneDrive("Analyses/Conventional tagging"))  #function for setting the working directory
 
 source(handl_OneDrive("Analyses/SOURCE_SCRIPTS/Git_other/Plot.Map.R"))   #function for sourcing other .R scripts
 
@@ -74,7 +74,7 @@ Bathymetry_138=read.table(handl_OneDrive("Data/Mapping/get_data120.05_138.cgi"))
 Bathymetry=rbind(Bathymetry_120,Bathymetry_138)
 
 
-
+LH.data=read.csv(handl_OneDrive('Data/Life history parameters/Life_History.csv'))
 
 
 ###### PARAMETERS SECTION ############
@@ -84,10 +84,18 @@ names(size.mat)=names(size.birth)=c("Sandbar shark","Dusky shark","Gummy shark",
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
 
-Growth.pars=list(TK=c(k=0.04, FLinf=244, Lo=42.5),
-                 BW=c(k=0.0367, FLinf=374, Lo=75),
-                 GM=c(k=0.123, FLinf=202, Lo=33),
-                 WH=c(k=0.369, FLinf=121, Lo=25))
+ind.sp.vec=c(18007,18003,17001,17003) 
+names(ind.sp.vec)=c('sandbar','dusky','gummy','whiskery')
+
+fun.get.LF=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(K,FL_inf,LF_o)
+TK.growth=fun.get.LF(sp=ind.sp.vec[1])  #c(k=0.04, FLinf=244, Lo=42.5) old stuff
+BW.growth=fun.get.LF(sp=ind.sp.vec[2])  #c(k=0.0367, FLinf=374, Lo=75)
+GM.growth=fun.get.LF(sp=ind.sp.vec[3])  #c(k=0.123, FLinf=202, Lo=33)
+WH.growth=fun.get.LF(sp=ind.sp.vec[4])  #c(k=0.369, FLinf=121, Lo=25)
+Growth.pars=list(TK=with(TK.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
+                 BW=with(BW.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
+                 GM=with(GM.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
+                 WH=with(WH.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)))
 
 
 ###### MANIPULATE DATA ############
@@ -1373,6 +1381,38 @@ if(do.paper)
   
   
   Tagging=Tagging%>%filter(Over.threshold=="YES")
+  
+  #Species more than one year at large  #ACA
+  Taggin.over.1.year=Tagging%>%
+    filter(DaysAtLarge>365)%>%
+    mutate(years.at.large=case_when(DaysAtLarge<=(365*2)~'1-2 years at large',
+                                    DaysAtLarge>(365*2)& DaysAtLarge<=(365*3)~'2-3 years at large',
+                                    DaysAtLarge>(365*3)& DaysAtLarge<=(365*4)~'3-4 years at large',
+                                    DaysAtLarge>(365*4)& DaysAtLarge<=(365*5)~'4-5 years at large',
+                                    DaysAtLarge>(365*5)~'>5 years at large'),
+           years.at.large=factor(years.at.large,levels=c('1-2 years at large','2-3 years at large',
+                                                         '3-4 years at large','4-5 years at large',
+                                                         '>5 years at large')))
+  
+  sp.over.1.year=unique(Taggin.over.1.year$COMMON_NAME)
+  
+  pdf("Species_more_than_one_year_at_large.pdf")
+  for(s in 1:length(sp.over.1.year))
+  {
+    p=Taggin.over.1.year%>%
+      filter(COMMON_NAME==sp.over.1.year[s])%>%
+      ggplot(aes(Long.rels,Lat.rels))+
+      geom_point()+
+      geom_point(aes(Long.rec,Lat.rec),color=2)+
+      geom_segment(aes(x = Long.rels, y = Lat.rels, xend = Long.rec, yend = Lat.rec),
+                   arrow = arrow(length = unit(0.5, "cm")))+
+      facet_wrap(~years.at.large)+
+      ggtitle(sp.over.1.year[s])+
+      ylim(range(c(Taggin.over.1.year$Lat.rec,Taggin.over.1.year$Lat.rels)))+
+      xlim(range(c(Taggin.over.1.year$Long.rec,Taggin.over.1.year$Long.rels)))
+    print(p)
+  }
+  dev.off()
   
   #Distance moved (in metres) and bearing (in 360 degrees; 0 degrees= North) 
   #note: follow shortest path (i.e. a Great Circle) and correct for corners
