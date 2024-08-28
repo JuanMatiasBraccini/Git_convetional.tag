@@ -87,15 +87,36 @@ min.daysAtLiberty=2         #minimum time at liberty for descriptive movement pa
 ind.sp.vec=c(18007,18003,17001,17003) 
 names(ind.sp.vec)=c('sandbar','dusky','gummy','whiskery')
 
-fun.get.LF=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(K,FL_inf,LF_o)
-TK.growth=fun.get.LF(sp=ind.sp.vec[1])  #c(k=0.04, FLinf=244, Lo=42.5) old stuff
-BW.growth=fun.get.LF(sp=ind.sp.vec[2])  #c(k=0.0367, FLinf=374, Lo=75)
-GM.growth=fun.get.LF(sp=ind.sp.vec[3])  #c(k=0.123, FLinf=202, Lo=33)
-WH.growth=fun.get.LF(sp=ind.sp.vec[4])  #c(k=0.369, FLinf=121, Lo=25)
-Growth.pars=list(TK=with(TK.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
-                 BW=with(BW.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
-                 GM=with(GM.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)),
-                 WH=with(WH.growth,c(k=K, FLinf=FL_inf, Lo=LF_o)))
+fun.get.LH=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(K,FL_inf,LF_o,to,Max_Age)
+fun.get.LH_male=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(male_K,male_FL_inf,LF_o,to)
+
+TK.growth=fun.get.LH(sp=ind.sp.vec[1])  #c(k=0.04, FLinf=244, Lo=42.5) old stuff
+BW.growth=fun.get.LH(sp=ind.sp.vec[2])  #c(k=0.0367, FLinf=374, Lo=75)
+GM.growth=fun.get.LH(sp=ind.sp.vec[3])  #c(k=0.123, FLinf=202, Lo=33)
+WH.growth=fun.get.LH(sp=ind.sp.vec[4])  #c(k=0.369, FLinf=121, Lo=25)
+Growth.pars=list(TK=with(TK.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
+                 BW=with(BW.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
+                 GM=with(GM.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
+                 WH=with(WH.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)))
+
+TK.growth.m=fun.get.LH_male(sp=ind.sp.vec[1])  
+BW.growth.m=fun.get.LH_male(sp=ind.sp.vec[2])  
+GM.growth.m=fun.get.LH_male(sp=ind.sp.vec[3])  
+WH.growth.m=fun.get.LH_male(sp=ind.sp.vec[4])  
+Growth.pars_male=list(TK=with(TK.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
+                      BW=with(BW.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
+                      GM=with(GM.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
+                      WH=with(WH.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)))
+
+Gr=list(BW=c(K.f=BW.growth$K,Linf.f=BW.growth$FL_inf,to.f=BW.growth$to,
+             K.m=BW.growth.m$male_K,Linf.m=BW.growth.m$male_FL_inf,to.m=BW.growth.m$to), #Linf is in FL
+        TK=c(K.f=TK.growth$K,Linf.f=TK.growth$FL_inf,to.f=TK.growth$to,
+             K.m=TK.growth.m$male_K,Linf.m=TK.growth.m$male_FL_inf,to.m=TK.growth.m$to),
+        GM=c(K.f=GM.growth$K,Linf.f=GM.growth$FL_inf,to.f=GM.growth$to,
+             K.m=GM.growth.m$male_K,Linf.m=GM.growth.m$male_FL_inf,to.m=GM.growth.m$to),
+        WH=c(K.f=WH.growth$K,Linf.f=WH.growth$FL_inf,to.f=WH.growth$to,
+             K.m=WH.growth.m$male_K,Linf.m=WH.growth.m$male_FL_inf,to.m=WH.growth.m$to))
+Mx.age=list(BW=BW.growth$Max_Age, TK=TK.growth$Max_Age, GM=GM.growth$Max_Age, WH=WH.growth$Max_Age)
 
 
 ###### MANIPULATE DATA ############
@@ -163,7 +184,7 @@ vonB_rev.fun=function(Lo,Linf,k,L) -log(1-((L-Lo)/(Linf-Lo)))/k
 fn.get.FL=function(FL.init,k,Linf,Lo,delta.t)
 {
   Size.at.capture=NA
-  if(!is.na(FL.init))
+  if(any(!is.na(FL.init)))
   {
     #1. Get age from release FL
     Age.at.release=vonB_rev.fun(Lo,Linf,k,FL.init)
@@ -181,25 +202,25 @@ fn.get.FL=function(FL.init,k,Linf,Lo,delta.t)
 Tagging=Tagging%>%
           mutate(CAP_FL.ori=CAP_FL,
                  CAP_FL=case_when(Species=="TK" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
-                                                                                            k=Growth.pars$TK[1],
-                                                                                            Linf=Growth.pars$TK[2],
-                                                                                            Lo=Growth.pars$TK[3],
-                                                                                            delta.t=DaysAtLarge/365),
+                                                                                                k=Growth.pars$TK[1],
+                                                                                                Linf=Growth.pars$TK[2],
+                                                                                                Lo=Growth.pars$TK[3],
+                                                                                                delta.t=DaysAtLarge/365),
                                   Species=="BW" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
-                                                                                            k=Growth.pars$BW[1],
-                                                                                            Linf=Growth.pars$BW[2],
-                                                                                            Lo=Growth.pars$BW[3],
-                                                                                            delta.t=DaysAtLarge/365),
+                                                                                                k=Growth.pars$BW[1],
+                                                                                                Linf=Growth.pars$BW[2],
+                                                                                                Lo=Growth.pars$BW[3],
+                                                                                                delta.t=DaysAtLarge/365),
                                   Species=="GM" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
-                                                                                            k=Growth.pars$GM[1],
-                                                                                            Linf=Growth.pars$GM[2],
-                                                                                            Lo=Growth.pars$GM[3],
-                                                                                            delta.t=DaysAtLarge/365),
+                                                                                                k=Growth.pars$GM[1],
+                                                                                                Linf=Growth.pars$GM[2],
+                                                                                                Lo=Growth.pars$GM[3],
+                                                                                                delta.t=DaysAtLarge/365),
                                   Species=="WH" & !Rec.method=="Research longline" ~ fn.get.FL(FL.init=Rel_FL,
-                                                                                            k=Growth.pars$WH[1],
-                                                                                            Linf=Growth.pars$WH[2],
-                                                                                            Lo=Growth.pars$WH[3],
-                                                                                            delta.t=DaysAtLarge/365),
+                                                                                                k=Growth.pars$WH[1],
+                                                                                                Linf=Growth.pars$WH[2],
+                                                                                                Lo=Growth.pars$WH[3],
+                                                                                                delta.t=DaysAtLarge/365),
                                   TRUE ~ CAP_FL))
                    
 #Relative FL
@@ -590,7 +611,7 @@ fn.axis=function()
   box()
 }
 
-Tagging$Lat.rels=with(Tagging,ifelse(Species=="BW" & Long.rels<114 & Lat.rels>-17.7,-21.765,Lat.rels))
+
 
 blk.wht=TRUE
 if(blk.wht)
@@ -1052,7 +1073,7 @@ shelf.cells=c(1422:1425,1521:1524,1621:1624,1719:1722,1818:1822,1915:1921,2015:2
               2114:2115,2213:2214,2312:2313,2412:2413,2512:2514,2612:2614,2712:2714,
               2813:2814,2914,3014:3015,3114:3115,3214:3215,3314:3315,3414:3416,3515:3518,
               3128:3131,3225:3233,3323:3334,3419:3438,3534:3538)
-CELLS=subset(CELLS,name%in%shelf.cells)  #only keep CELLS occurrying in the shelf
+CELLS=subset(CELLS,name%in%shelf.cells)  #only keep CELLS occurring in the shelf
 
 #add cell borders
 CELLS$West=CELLS$centroid.Long-(cell.size/2)    	
@@ -1066,24 +1087,32 @@ CELLS=CELLS[order(CELLS$name),]
 Tagging$Rel.name=-(ceiling(Tagging$Lat.rels)) * 100 +(floor(Tagging$Long.rels)-100)
 Tagging$Rec.name=-(ceiling(Tagging$Lat.rec)) * 100 +(floor(Tagging$Long.rec)-100)
 
+#remove dead releases
+Tagging=Tagging%>%
+          filter(!CONDITION%in%c(0,4))     
 
 #Create tagging data for pop dyn model  -----------------------------------------------------------
-
+hndl.pop.dyn.graphs=handl_OneDrive("Analyses/Conventional tagging/Population dynamics")
 Tagging=subset(Tagging,!is.na(Long.rels))
 Tagging=subset(Tagging,!is.na(Lat.rels))
 
   #remove nonsense records                                                   
 Tagging.pop.din=subset(Tagging, is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold)
 
+  #select relevant species
 Pop.din.sp=c("BW","TK","GM","WH")
+Age.mat.sp=Species.Codes%>%filter(Species%in%Pop.din.sp)%>%distinct(Species,CAES_Code)
+Age.mat=LH.data%>%filter(SPECIES%in%Age.mat.sp$CAES_Code)%>%
+  distinct(SPECIES,Age_50_Mat_min,Age_50_Mat_max)%>%
+  left_join(Age.mat.sp,by=c('SPECIES'='CAES_Code'))
 Tagging.pop.din=subset(Tagging.pop.din,Species%in%Pop.din.sp)
 
   #SA recaptured sharks reset to zone 2 following linear trajectory
 SA.rels=subset(Tagging.pop.din,Long.rels>129)
 Tagging.pop.din=subset(Tagging.pop.din,Long.rels<=129)  #exclude gummy releases in SA
 Tagging.pop.din$SA.rec=with(Tagging.pop.din,ifelse(Long.rec>129,"Y","N"))
-
-store.SA.recal=vector('list',length=3)   #no sandbars recaptured in SA so no need to recalculate
+recaptures.in.SA=unique(Tagging.pop.din%>%filter(SA.rec=='Y')%>%pull(Species))
+store.SA.recal=vector('list',length=length(recaptures.in.SA))   
 fn.interpolate.SA=function(SPeC)
 {
   a=subset(Tagging.pop.din,SA.rec=="Y"& Species==SPeC)
@@ -1104,18 +1133,14 @@ fn.interpolate.SA=function(SPeC)
   b=do.call(rbind,b)
   return(b)
 }
-store.SA.recal[[1]]=fn.interpolate.SA("GM")
-store.SA.recal[[2]]=fn.interpolate.SA("WH")
-store.SA.recal[[3]]=fn.interpolate.SA("BW")
+for(i in 1:length(recaptures.in.SA)) store.SA.recal[[i]]=fn.interpolate.SA(recaptures.in.SA[i])
 store.SA.recal=do.call(rbind,store.SA.recal)
 names(store.SA.recal)[c(1:3,5)]=paste(names(store.SA.recal)[c(1:3,5)],".1",sep="")
-
 Tagging.pop.din=merge(Tagging.pop.din,store.SA.recal,by="Tag.no",all.x=T)
 Tagging.pop.din$DATE_CAPTR=with(Tagging.pop.din,ifelse(SA.rec=='Y',DATE_CAPTR.1,DATE_CAPTR))
 Tagging.pop.din$Lat.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Lat.rec.1,Lat.rec))
 Tagging.pop.din$Long.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Long.rec.1,Long.rec))
 Tagging.pop.din$DaysAtLarge=with(Tagging.pop.din,ifelse(SA.rec=='Y',DaysAtLarge.1,DaysAtLarge))
-
 
   #add zone released
 Tagging.pop.din$Rel.zone=as.character(with(Tagging.pop.din,ifelse(Long.rels>=116.5 & Lat.rels<=(-26),"Zone2",
@@ -1125,7 +1150,6 @@ Tagging.pop.din$Rel.zone=as.character(with(Tagging.pop.din,ifelse(Long.rels>=116
                          ifelse(Lat.rels>(-26) & Long.rels>=114 & Long.rels<123.75,"North",
                          ifelse(Lat.rels>(-26) & Long.rels>=123.75,"Joint",NA))))))))
 
-
   #add zone recaptured
 Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.5 & Lat.rec<=(-26),"Zone2",
                       ifelse(Long.rec<116.5 & Lat.rec<=(-33),"Zone1",
@@ -1134,90 +1158,146 @@ Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.
                       ifelse(Lat.rec>(-26) & Long.rec>=114 & Long.rec<123.75,"North",
                       ifelse(Lat.rec>(-26) & Long.rec>=123.75,"Joint",NA))))))))
 
-  #Vector analysis to visualize movement differences among sexes and size for each species
-SIZE=c(240,130,110,110)
 
-for (i in 1:length(Pop.din.sp))
+#Calculate age from length
+#note: used the inverse of Von B because there is not enough info to create age-length key for any species
+Gr.pars.dat.frm=Gr
+for(g in 1:length(Gr.pars.dat.frm))
 {
-  Size=SIZE[i]
-  a=subset(Tagging.pop.din,Species==Pop.din.sp[i])
-  X=range(c(a$Long.rels,a$Long.rec),na.rm=T)
-  Y=range(c(a$Lat.rels,a$Lat.rec),na.rm=T)
-  if(i==3) Y=range(c(a$Lat.rec,min(a$Lat.rels)),na.rm=T)
+  dd=data.frame(matrix(Gr.pars.dat.frm[[g]],nrow=1))
+  names(dd)=names(Gr.pars.dat.frm[[g]])
+  attach(dd)
+  dd1=data.frame(Species=names(Gr.pars.dat.frm)[g],
+                 Sex=c('F','M'),
+                 K=c(K.f,K.m),
+                 Linf=c(Linf.f,Linf.m),
+                 to=c(to.f,to.m),
+                 Lzero=rep(Growth.pars[[names(Gr.pars.dat.frm)[g]]][['Lo']],2),
+                 Max.age=rep(Mx.age[[names(Gr.pars.dat.frm)[g]]],2))
+  detach(dd)
+  dd1=rbind(dd1,
+            dd1[1,])
+  dd1[3,'Sex']='U'
   
-  fem=subset(a,Sex=="F")
-  mal=subset(a,Sex=="M")
-  YR.rec=sort(unique(a$Yr.rec))
+  Gr.pars.dat.frm[[g]]=dd1
+}
+Gr.pars.dat.frm=do.call(rbind,Gr.pars.dat.frm)
+Tagging.pop.din=Tagging.pop.din%>%
+  left_join(Gr.pars.dat.frm,by=c('Species','Sex'))%>%
+  mutate(Age=(log(-(Rel_FL-Linf)/(Linf-Lzero)))/(-K),  #to-(1/K)*log(1-(Rel_FL/Linf)),
+         Age=ifelse(Age=='Inf',NA,Age),
+         Age.max=runif(n(),Max.age*0.8,Max.age),
+         Age=ifelse(Rel_FL>=Linf,Age.max,Age),
+         Age.rec=ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA),
+         Age=ifelse(Age<0,0,Age),
+         Age=ifelse(Age>Max.age,Max.age,Age),
+         Age=round(Age),
+         Age.rec=round(Age.rec))%>%
+  dplyr::select(-c(K,Linf,to,Max.age,Age.max))
+
+#some plots
+plot.dis=FALSE
+if(plot.dis)
+{
+  #releases
+  Tagging.pop.din%>%
+    ggplot(aes(Long.rels,Lat.rels,color=Rel.zone))+
+    geom_point()+
+    facet_wrap(~Species)+ggtitle('Releases')
+  ggsave(paste0(hndl.pop.dyn.graphs,'/releases.tiff'),width=6,height=6, dpi=300,compression = "lzw")
   
-  tiff(file=paste(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs/Maps.for.pop.dyn/"),Pop.din.sp[i],".tiff",sep=""),
-       width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  #recaptures
+  Tagging.pop.din%>%
+    ggplot(aes(Long.rec,Lat.rec,color=Rec.zone))+
+    geom_point()+
+    facet_wrap(~Species)+ggtitle('Recaptures')
+  ggsave(paste0(hndl.pop.dyn.graphs,'/recaptures.tiff'),width=6,height=6, dpi=300,compression = "lzw")
   
-  par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
-  #plot(X,Y,col="transparent",main=paste("Female",Pop.din.sp[i],"all years"))
-  plot(X,Y,col="transparent",main="Female",ylab="Lat",xlab="Long")
-  arrows(fem$Long.rels,fem$Lat.rels,fem$Long.rec,fem$Lat.rec,col="pink",lwd=1.5)
-  plot(X,Y,col="transparent",main="Male",ylab="Lat",xlab="Long")
-  #plot(X,Y,col="transparent",main=paste("Male",Pop.din.sp[i],"all years"))
-  arrows(mal$Long.rels,mal$Lat.rels,mal$Long.rec,mal$Lat.rec,col="blue",lwd=1.5)
+  #Vector analysis to visualize movement differences among sexes and size for each species
+  SIZE=c(240,130,110,110)
+  for (i in 1:length(Pop.din.sp))
+  {
+    Size=SIZE[i]
+    a=subset(Tagging.pop.din,Species==Pop.din.sp[i])
+    X=range(c(a$Long.rels,a$Long.rec),na.rm=T)
+    Y=range(c(a$Lat.rels,a$Lat.rec),na.rm=T)
+    if(i==3) Y=range(c(a$Lat.rec,min(a$Lat.rels)),na.rm=T)
+    
+    fem=subset(a,Sex=="F")
+    mal=subset(a,Sex=="M")
+    YR.rec=sort(unique(a$Yr.rec))
+    
+    tiff(file=paste0(paste0(hndl.pop.dyn.graphs,'/arrows_overall_'),Pop.din.sp[i],".tiff"),
+         width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    
+    par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
+    #plot(X,Y,col="transparent",main=paste("Female",Pop.din.sp[i],"all years"))
+    plot(X,Y,col="transparent",main="Female",ylab="Lat",xlab="Long")
+    arrows(fem$Long.rels,fem$Lat.rels,fem$Long.rec,fem$Lat.rec,col="pink",lwd=1.5)
+    plot(X,Y,col="transparent",main="Male",ylab="Lat",xlab="Long")
+    #plot(X,Y,col="transparent",main=paste("Male",Pop.din.sp[i],"all years"))
+    arrows(mal$Long.rels,mal$Lat.rels,mal$Long.rec,mal$Lat.rec,col="blue",lwd=1.5)
+    
+    
+    b=subset(a,Rel_FL<Size)
+    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
+    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="red",lwd=1.5)
+    
+    b=subset(a,Rel_FL>Size)
+    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
+    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="darkgreen",lwd=1.5)  
+    dev.off()
+  }
+  colfunc <- colorRampPalette(c("cadetblue2", "darkblue"))
+  for (i in 1:length(Pop.din.sp))
+  {
+    x=Tagging.pop.din%>%
+      filter(Species==Pop.din.sp[i] & Recaptured=='Yes' & !is.na(Age)& !is.na(Age.rec) & !Age.rec=='')
+    Nkols=1
+    if(length(unique(x$Age))>5) Nkols=3
+    if(length(unique(x$Age))>10) Nkols=4
+    x=x%>%
+      mutate(Age.rec=as.factor(Age.rec))
+    cols=colfunc(length(levels(x$Age.rec)))
+    names(cols)=levels(x$Age.rec)
+    x%>%
+      ggplot(aes(color=Age.rec))+
+      geom_segment(aes(x = Long.rels, y = Lat.rels, xend = Long.rec, yend = Lat.rec),
+                   arrow = arrow(length = unit(0.15, "cm")))+
+      facet_wrap(~Age,ncol = Nkols)+ 
+      scale_colour_manual(values = cols)+ylab("Latitude")+xlab("Longitude")+
+      theme(legend.position = 'top',legend.text = element_text(size=6))+guides(color=guide_legend(nrow=2,byrow=TRUE))
+    ggsave(paste0(paste0(hndl.pop.dyn.graphs,'/arrows_by age_'),Pop.din.sp[i],".tiff"),
+           width=6,height=6, dpi=300,compression = "lzw")
+  }
+
   
+  #age and length
+  Tagging.pop.din%>%
+    ggplot(aes(Age,Rel_FL,color=Sex))+
+    geom_point()+
+    facet_wrap(~Species,scales='free')
+  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release vs length.tiff'),width=6,height=6, dpi=300,compression = "lzw")
   
-  b=subset(a,Rel_FL<Size)
-  plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
-  arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="red",lwd=1.5)
+  #age histogram
+  Tagging.pop.din%>%
+    left_join(Age.mat,by="Species")%>%
+    ggplot(aes(Age,fill=Sex))+
+    geom_histogram(positio='dodge')+
+    facet_wrap(~Species,scales='free')+
+    geom_vline(aes(xintercept = Age_50_Mat_min), colour="black",size=1.25,alpha=.5)+
+    geom_vline(aes(xintercept = Age_50_Mat_max), colour="black",size=1.25,alpha=.5) 
+  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release histogram.tiff'),width=6,height=6, dpi=300,compression = "lzw")
   
-  b=subset(a,Rel_FL>Size)
-  plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
-  arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="darkgreen",lwd=1.5)  
-#   for(x in 1:length(YR.rec))
-#   {
-#     fem1=subset(fem,Yr.rec==YR.rec[x])
-#     mal1=subset(mal,Yr.rec==YR.rec[x])
-#     par(mfcol=c(2,1))
-#     plot(X,Y,col="transparent",main=paste(Pop.din.sp[i],YR.rec[x]))
-#     arrows(fem1$Long.rels,fem1$Lat.rels,fem1$Long.rec,fem1$Lat.rec,col="pink",lwd=1.5)
-#     plot(X,Y,col="transparent",main=paste(Pop.din.sp[i],YR.rec[x]))
-#     arrows(mal1$Long.rels,mal1$Lat.rels,mal1$Long.rec,mal1$Lat.rec,col="blue",lwd=1.5)
-#     
-#   }
-  dev.off()
 }
 
-#a) Tag groups by age class
-  #growth parameters (Linf is in FL)
-Gr=list(BW=c(K.f=.0367,Linf.f=374.4,to.f=-3.3,K.m=0.045,Linf.m=337,to.m=-3),
-        TK=c(K.f=.040,Linf.f=244.2,to.f=-4.8,K.m=0.044,Linf.m=226,to.m=-4),
-        GM=c(K.f=0.123,Linf.f=(201.9-4.6424)/1.08,to.f=-1.55,K.m=0.253,Linf.m=(138.7-4.6424)/1.08,to.m=-0.9),
-        WH=c(K.f=0.369,Linf.f=120.7,to.f=-0.6,K.m=.423,Linf.m=121.5,to.m=-0.472))
-Mx.age=list(BW=45,TK=33,GM=16,WH=15)
 
-fn.group=function(DAT,K.f,Linf.f,to.f,K.m,Linf.m,to.m,BySex,MX.AGE)
+#Create Tag groups (i.e. same released age class year and zone. Use as SS3 input)  
+fn.group=function(DAT,BySex)
 {
   names(DAT)[match(c("Rel.name","Rec.name"),names(DAT))]=c("Block.rel","Block.rec")
   DAT$Number=1
   DAT$Sex=with(DAT,ifelse(Sex=="U","F",Sex))
-  
-  #assign age
-  if(unique(DAT$Species)=="GM")DAT$Rel_FL=DAT$Rel_FL*1.0837 +4.6424   #gummy growth pars are in TL
-
-  
-  #Calculate age from length
-    #note: used the inverse of Von B because there is not enough info to create age-length key for any species
-  DAT$Age=with(DAT,ifelse(Sex=="F",to.f-(1/K.f)*log(1-(Rel_FL/Linf.f)),
-              ifelse(Sex=="M",to.m-(1/K.m)*log(1-(Rel_FL/Linf.m)),NA))) 
-    
-  #fix age for length > Linf 
-  fem=subset(DAT,Sex=="F");mal=subset(DAT,Sex=="M")
-  max.A.f=max(fem$Age,na.rm=T);max.A.m=max(subset(mal$Age,!mal$Age=='Inf'),na.rm=T)
-  DAT$Age=with(DAT,ifelse(Sex=="F" & Rel_FL>=Linf.f,runif(1,max.A.f,MX.AGE),
-                        ifelse(Sex=="M" & Rel_FL>=Linf.m,runif(1,max.A.m,MX.AGE),Age)))
-  DAT$Age=with(DAT,ifelse(Age<0,0,Age))
-               
-  #Age recapture
-  DAT$Age.rec=with(DAT,ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA))
-  
-  DAT$Age=round(DAT$Age)
-  DAT$Age.rec=round(DAT$Age.rec)
-  
   if(BySex=="YES")
   {
     #assign tag group
@@ -1257,37 +1337,42 @@ fn.group=function(DAT,K.f,Linf.f,to.f,K.m,Linf.m,to.m,BySex,MX.AGE)
     
     
     #All release numbers
-    BLK.rel=aggregate(Number~TG.blk+Block.rel+Yr.rel+Mn.rel+Age+Rel_FL,DAT,sum)
-    Zn.rel=aggregate(Number~TG.zn+Rel.zone+Yr.rel+Mn.rel+Age+Rel_FL,DAT,sum)
+    BLK.rel=aggregate(Number~TG.blk+Block.rel+Yr.rel+Mn.rel+Age,DAT,sum)
+    Zn.rel=aggregate(Number~TG.zn+Rel.zone+Yr.rel+Mn.rel+Age,DAT,sum)
     
     #Recapture numbers
     BLK.rec=aggregate(Number~TG.blk+Block.rec+Yr.rec+Mn.rec,DAT.rec,sum)
     Zn.rec=aggregate(Number~TG.zn+Rec.zone+Yr.rec+Mn.rec,DAT.rec,sum)
-     
+    
+    #Add SS stuff
+    BLK.rel=BLK.rel%>%mutate(Season=1,tfill=Yr.rel,Gender=0)
+    Zn.rel=Zn.rel%>%mutate(Season=1,tfill=Yr.rel,Gender=0)
+    
+    BLK.rec=BLK.rec%>%mutate(Season=1)
+    Zn.rec=Zn.rec%>%mutate(Season=1)
+    
     return(list(BLK.rel=BLK.rel,Zn.rel=Zn.rel,BLK.rec=BLK.rec,Zn.rec=Zn.rec))
   }
 
 }
-
 Store.group=vector('list',length(Pop.din.sp))
 names(Store.group)=Pop.din.sp
 Store.group.size=Store.group
 for(i in 1:length(Store.group))
 {
-  Store.group[[i]]=fn.group(subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)),
-    K.f=Gr[[i]][1],Linf.f=Gr[[i]][2],to.f=Gr[[i]][3],K.m=Gr[[i]][4],Linf.m=Gr[[i]][5],
-    to.m=Gr[[i]][6],BySex="NO",MX.AGE=Mx.age[[i]])
+  Store.group[[i]]=fn.group(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)),
+                            BySex="NO")
 }
 
-
-# Export Data for Population modelling------------------------------------------------------------------
+#Deje aca
+# Export Data for Movement modelling in population dynamics------------------------------------------------------------------
 
   #individual based model
 setwd(handl_OneDrive("Analyses/Data_outs"))
 for(i in 1:length(Pop.din.sp))
 {
   a=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(DaysAtLarge) & !is.na(Rec.zone),
-           select=c(Tag.no,DaysAtLarge,Rel.zone,Rec.zone))
+           select=c(Tag.no,Age,Rel_FL,DaysAtLarge,Rel.zone,Rec.zone))
   NmS=ifelse(Pop.din.sp[i]=="BW",'Dusky shark',
       ifelse(Pop.din.sp[i]=='WH','Whiskery shark',
       ifelse(Pop.din.sp[i]=='GM','Gummy shark',
@@ -1305,15 +1390,23 @@ for(i in 1:length(Pop.din.sp))
   
 }
 
-  #Other stuff
-setwd(handl_OneDrive("Data/Tagging/Pop dyn model/Conventional"))
+  #population based model (movement matrix)
+    #a) Tag groups by age
 for(i in 1:length(Store.group))
 {
   a=Store.group[[i]]
-  for(p in 1:length(a)) write.csv(a[[p]],paste(names(Store.group)[i],"_",names(a)[p],"_","Conv.Tag.csv",sep=""),row.names=F)
+  NmS=ifelse(names(Store.group)[i]=="BW",'Dusky shark',
+      ifelse(names(Store.group)[i]=='WH','Whiskery shark',
+      ifelse(names(Store.group)[i]=='GM','Gummy shark',
+      ifelse(names(Store.group)[i]=='TK','Sandbar shark',NA))))
+  for(p in 1:length(a))
+  {
+    write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_",names(a)[p],".csv")),row.names=F) 
+  }
 }
-  #b) Tag groups by size class
+    #b) Tag groups by size class
 #note: two size groups, one from smallest tagged to size at maturity, the other for >size at maturity
+#create the data
 for(i in 1:length(Store.group.size))
 {
   DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL))  
@@ -1345,7 +1438,6 @@ for(i in 1:length(Store.group.size))
                              Zn.rec=Zn.rec,Zn.rec.adul=Zn.rec.adul,Zn.rec.juv=Zn.rec.juv,
                              Smallest.size=Smallest.size)
 }
-
 #export
 for(i in 1:length(Store.group.size))
 {
@@ -1354,7 +1446,7 @@ for(i in 1:length(Store.group.size))
       ifelse(names(Store.group)[i]=='WH','Whiskery shark',
       ifelse(names(Store.group)[i]=='GM','Gummy shark',
       ifelse(names(Store.group)[i]=='TK','Sandbar shark',NA))))
-   for(p in 1:length(a)) write.csv(a[[p]],paste(handl_OneDrive('Analyses/Data_outs/'),NmS,'/',NmS,"_Con_tag_",names(a)[p],"_","Conv.Tag_size.csv",sep=""),row.names=F)
+  for(p in 1:length(a)) write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_Con_tag_",names(a)[p],"_by size group.csv")),row.names=F) 
 }
 
 
@@ -3883,7 +3975,7 @@ if(do.paper)
 # mtext("Longitude (?E)",side=1,outer=T,line=-.1,font=1,las=0,cex=1.5)
 # # dev.off()
 # 
-# #ACA: problem with WAcoast in function plotmap!!!
+
 
 # #Figure 1. Map of fishing zones
 # 
