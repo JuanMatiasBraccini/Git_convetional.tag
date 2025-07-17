@@ -50,7 +50,7 @@ library(mgcv)
 #memory.limit(3900)   #set memory limit to maximum size
 
 
-###### DATA SECTION ############
+# DATA SECTION ############
 
       #SHAPE FILE PERTH ISLANDS
 PerthIs=read.table(handl_OneDrive("Data/Mapping/WAislandsPointsNew.txt"), header=T) #function for reading txt file
@@ -77,32 +77,46 @@ Bathymetry=rbind(Bathymetry_120,Bathymetry_138)
 LH.data=read.csv(handl_OneDrive('Data/Life history parameters/Life_History.csv'))
 
 
-###### PARAMETERS SECTION ############
-size.mat=c(130,245,100,115)   #size at maturity of TK, BW, GM, WH  (FL, cm)    
-size.birth=c(42.5,75,25,25)   #size at birth of TK, BW, GM, WH  (FL, cm)
-names(size.mat)=names(size.birth)=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")
+# PARAMETERS SECTION ############
+do.paper=FALSE
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
 
 ind.sp.vec=c(18007,18003,17001,17003) 
 names(ind.sp.vec)=c('sandbar','dusky','gummy','whiskery')
 
-fun.get.LH=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(K,FL_inf,LF_o,to,Max_Age)
-fun.get.LH_male=function(sp) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(male_K,male_FL_inf,LF_o,to)
+fun.get.LH=function(sp,XX) LH.data%>%filter(SPECIES==sp)%>%dplyr::select(any_of(XX))
 
-TK.growth=fun.get.LH(sp=ind.sp.vec[1])  #c(k=0.04, FLinf=244, Lo=42.5) old stuff
-BW.growth=fun.get.LH(sp=ind.sp.vec[2])  #c(k=0.0367, FLinf=374, Lo=75)
-GM.growth=fun.get.LH(sp=ind.sp.vec[3])  #c(k=0.123, FLinf=202, Lo=33)
-WH.growth=fun.get.LH(sp=ind.sp.vec[4])  #c(k=0.369, FLinf=121, Lo=25)
+#Mat pars
+TK.mat=fun.get.LH(sp=ind.sp.vec[1],XX=c('TL.50.mat','LF_o','a_FL.to.TL','b_FL.to.TL'))
+BW.mat=fun.get.LH(sp=ind.sp.vec[2],XX=c('TL.50.mat','LF_o','a_FL.to.TL','b_FL.to.TL'))  
+GM.mat=fun.get.LH(sp=ind.sp.vec[3],XX=c('TL.50.mat','LF_o','a_FL.to.TL','b_FL.to.TL'))  
+WH.mat=fun.get.LH(sp=ind.sp.vec[4],XX=c('TL.50.mat','LF_o','a_FL.to.TL','b_FL.to.TL'))  
+
+size.mat=c(with(TK.mat,(TL.50.mat-b_FL.to.TL)/a_FL.to.TL),
+           with(BW.mat,(TL.50.mat-b_FL.to.TL)/a_FL.to.TL),
+           with(GM.mat,(TL.50.mat-b_FL.to.TL)/a_FL.to.TL),
+           with(WH.mat,(TL.50.mat-b_FL.to.TL)/a_FL.to.TL))   #size at maturity of TK, BW, GM, WH  (FL, cm)    
+size.birth=c(with(TK.mat,(LF_o)),
+             with(BW.mat,(LF_o)),
+             with(GM.mat,(LF_o)),
+             with(WH.mat,(LF_o)))   #size at birth of TK, BW, GM, WH  (FL, cm)
+names(size.mat)=names(size.birth)=c("Sandbar shark","Dusky shark","Gummy shark","Whiskery shark")
+
+#Growth pars
+TK.growth=fun.get.LH(sp=ind.sp.vec[1],XX=c('K','FL_inf','LF_o','to','Max_Age'))  
+BW.growth=fun.get.LH(sp=ind.sp.vec[2],XX=c('K','FL_inf','LF_o','to','Max_Age'))  
+GM.growth=fun.get.LH(sp=ind.sp.vec[3],XX=c('K','FL_inf','LF_o','to','Max_Age'))  
+WH.growth=fun.get.LH(sp=ind.sp.vec[4],XX=c('K','FL_inf','LF_o','to','Max_Age'))  
 Growth.pars=list(TK=with(TK.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
                  BW=with(BW.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
                  GM=with(GM.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
                  WH=with(WH.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)))
 
-TK.growth.m=fun.get.LH_male(sp=ind.sp.vec[1])  
-BW.growth.m=fun.get.LH_male(sp=ind.sp.vec[2])  
-GM.growth.m=fun.get.LH_male(sp=ind.sp.vec[3])  
-WH.growth.m=fun.get.LH_male(sp=ind.sp.vec[4])  
+TK.growth.m=fun.get.LH(sp=ind.sp.vec[1],XX=c('male_K','male_FL_inf','LF_o','to'))  
+BW.growth.m=fun.get.LH(sp=ind.sp.vec[2],XX=c('male_K','male_FL_inf','LF_o','to'))  
+GM.growth.m=fun.get.LH(sp=ind.sp.vec[3],XX=c('male_K','male_FL_inf','LF_o','to'))  
+WH.growth.m=fun.get.LH(sp=ind.sp.vec[4],XX=c('male_K','male_FL_inf','LF_o','to'))  
 Growth.pars_male=list(TK=with(TK.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
                       BW=with(BW.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
                       GM=with(GM.growth.m,c(k=male_K, FLinf=male_FL_inf, Lo=LF_o ,to=to)),
@@ -119,7 +133,7 @@ Gr=list(BW=c(K.f=BW.growth$K,Linf.f=BW.growth$FL_inf,to.f=BW.growth$to,
 Mx.age=list(BW=BW.growth$Max_Age, TK=TK.growth$Max_Age, GM=GM.growth$Max_Age, WH=WH.growth$Max_Age)
 
 
-###### MANIPULATE DATA ############
+# MANIPULATE DATA ############
 
 #Use only sharks tagged in WA
 Tagging=subset(Tagging,Long.rels<=129 | is.na(Long.rels))
@@ -154,21 +168,21 @@ Tagging$Valid.Rec=with(Tagging,ifelse(Recaptured=="Yes" & Jday.rec>=Jday.rel,"Ye
 
 #Validate lengths
 Tagging$Rel_FL=with(Tagging,
-          ifelse(Species=="TK" & Rel_FL<37,NA,
-          ifelse(Species=="BW" & Rel_FL<55,NA,
-          ifelse(Species=="WH" & Rel_FL<25,NA,
-          ifelse(Species=="GM" & Rel_FL<25,NA,
+          ifelse(Species=="TK" & Rel_FL<TK.growth$LF_o*.8,NA,
+          ifelse(Species=="BW" & Rel_FL<BW.growth$LF_o*.8,NA,
+          ifelse(Species=="WH" & Rel_FL<WH.growth$LF_o*.8,NA,
+          ifelse(Species=="GM" & Rel_FL<GM.growth$LF_o*.8,NA,
           Rel_FL)))))
 
 Tagging$CAP_FL=with(Tagging,
-          ifelse(Species=="TK" & CAP_FL<37,NA,
-          ifelse(Species=="BW" & CAP_FL<55,NA,
-          ifelse(Species=="WH" & CAP_FL<25,NA,
-          ifelse(Species=="GM" & CAP_FL<25,NA,
+          ifelse(Species=="TK" & CAP_FL<TK.growth$LF_o*.8,NA,
+          ifelse(Species=="BW" & CAP_FL<BW.growth$LF_o*.8,NA,
+          ifelse(Species=="WH" & CAP_FL<WH.growth$LF_o*.8,NA,
+          ifelse(Species=="GM" & CAP_FL<GM.growth$LF_o*.8,NA,
           CAP_FL)))))
 
 
-#Recalculate FL @ capture using growht model due to uncertain size measures by reporting fishers
+#Recalculate FL @ capture using growth model due to uncertain size measures by reporting fishers
 #Time at liberty
 Tagging$DATE_REL=as.Date( paste( Tagging$Yr.rel,Tagging$Mn.rel , Tagging$Day.rel , sep = "-" )  , format = "%Y-%m-%d" )
 Tagging$DATE_CAPTR=as.Date( paste( Tagging$Yr.rec,Tagging$Mn.rec , Tagging$Day.rec , sep = "-" )  , format = "%Y-%m-%d" )
@@ -177,7 +191,15 @@ Tagging$DaysAtLarge=with(Tagging,ifelse(DaysAtLarge<0,NA,DaysAtLarge))
 
 
 vonB.fun=function(Lo,Linf,k,t) Lo+(Linf-Lo)*(1-exp(-k*t))
-vonB_rev.fun=function(Lo,Linf,k,L) -log(1-((L-Lo)/(Linf-Lo)))/k
+vonB_rev.fun=function(Lo,Linf,k,L)
+{
+  out=data.frame(x=-log(1-((L-Lo)/(Linf-Lo)))/k)%>%
+    mutate(x1=0)%>%
+    rowwise() %>%
+    mutate(x2=max(x,x1))
+  return(out$x2)
+}
+  
 #a=vonB.fun(Lo,Linf,k,3)
 #vonB_rev.fun(Lo,Linf,k,a)  
 
@@ -257,133 +279,137 @@ Tagging=Tagging%>%
 
 # Table A1. -----------------------------------------------------------------------
 # Summary of numbers, size and sex ratios for all shark and ray species  
-Tab1.fun=function(Spec)
+if(do.paper)
 {
-  dat=subset(Tagging,Species==Spec)
-  
+  Tab1.fun=function(Spec)
+  {
+    dat=subset(Tagging,Species==Spec)
+    
     #Years rel and rec
-  Yrs.rel.min=min(dat$Yr.rel,na.rm=T)
-  Yrs.rel.max=max(dat$Yr.rel,na.rm=T)
-  Yrs.rec.min=Yrs.rec.max=NA
-  if(sum(dat$Yr.rec,na.rm=T)>0)
-  {
-    Yrs.rec.min=min(dat$Yr.rec,na.rm=T)
-    Yrs.rec.max=max(dat$Yr.rec,na.rm=T)
-  }
+    Yrs.rel.min=min(dat$Yr.rel,na.rm=T)
+    Yrs.rel.max=max(dat$Yr.rel,na.rm=T)
+    Yrs.rec.min=Yrs.rec.max=NA
+    if(sum(dat$Yr.rec,na.rm=T)>0)
+    {
+      Yrs.rec.min=min(dat$Yr.rec,na.rm=T)
+      Yrs.rec.max=max(dat$Yr.rec,na.rm=T)
+    }
     
-  
+    
     #Number rel and rec                
-  N.rel=length(dat$Species)  
-  N.rec=NA
-  dat.rec=subset(dat,Recaptured=="Yes")
-  if(nrow(dat.rec)>0) N.rec=nrow(dat.rec)
-  
-    #Recapture ratio
-  Rec.ratio=NA
-  if(!is.na(N.rec)) Rec.ratio=round(100*N.rec/N.rel,1)
-  
-    #Size rel and rec
-  FL.rel.min=min(dat$Rel_FL,na.rm=T) 
-  FL.rel.max=max(dat$Rel_FL,na.rm=T) 
-  FL.rec.min=FL.rec.max=NA
-  if(nrow(dat.rec)>0)
-  {
-       FL.rec.min=min(dat$CAP_FL,na.rm=T)
-      FL.rec.max=max(dat$CAP_FL,na.rm=T)
-  }
+    N.rel=length(dat$Species)  
+    N.rec=NA
+    dat.rec=subset(dat,Recaptured=="Yes")
+    if(nrow(dat.rec)>0) N.rec=nrow(dat.rec)
     
-  
+    #Recapture ratio
+    Rec.ratio=NA
+    if(!is.na(N.rec)) Rec.ratio=round(100*N.rec/N.rel,1)
+    
+    #Size rel and rec
+    FL.rel.min=min(dat$Rel_FL,na.rm=T) 
+    FL.rel.max=max(dat$Rel_FL,na.rm=T) 
+    FL.rec.min=FL.rec.max=NA
+    if(nrow(dat.rec)>0)
+    {
+      FL.rec.min=min(dat$CAP_FL,na.rm=T)
+      FL.rec.max=max(dat$CAP_FL,na.rm=T)
+    }
+    
+    
     #sex ratio rel and rec
-  Sex.rel=table(dat$Sex)
-  id.M=match("M",names(Sex.rel))
-  id.F=match("F",names(Sex.rel))
-  Rel.M=Sex.rel[id.M]
-  Rel.F=Sex.rel[id.F]
-  
-  
-  Rec.M=Rec.F=NA
-  if(nrow(dat.rec)>0)
-  {
-    Sex.rel=table(dat.rec$Sex)
+    Sex.rel=table(dat$Sex)
     id.M=match("M",names(Sex.rel))
     id.F=match("F",names(Sex.rel))
-    Rec.M=Sex.rel[id.M]
-    Rec.F=Sex.rel[id.F]
+    Rel.M=Sex.rel[id.M]
+    Rel.F=Sex.rel[id.F]
+    
+    
+    Rec.M=Rec.F=NA
+    if(nrow(dat.rec)>0)
+    {
+      Sex.rel=table(dat.rec$Sex)
+      id.M=match("M",names(Sex.rel))
+      id.F=match("F",names(Sex.rel))
+      Rec.M=Sex.rel[id.M]
+      Rec.F=Sex.rel[id.F]
+      
+    }
+    TL.measured=as.character(ifelse(Spec%in%TL.species,"TL","FL"))
+    return(list(Yrs.rel.min=Yrs.rel.min,Yrs.rel.max=Yrs.rel.max,Yrs.rec.min=Yrs.rec.min,
+                Yrs.rec.max=Yrs.rec.max,
+                N.rel=N.rel,N.rec=N.rec,Rec.ratio=Rec.ratio,FL.rel.min=FL.rel.min,FL.rel.max=FL.rel.max,FL.rec.min=FL.rec.min,
+                FL.rec.max=FL.rec.max,Rel.M=Rel.M,Rel.F=Rel.F,Rec.M=Rec.M,Rec.F=Rec.F,
+                TL.measured=TL.measured))
     
   }
-  TL.measured=as.character(ifelse(Spec%in%TL.species,"TL","FL"))
-  return(list(Yrs.rel.min=Yrs.rel.min,Yrs.rel.max=Yrs.rel.max,Yrs.rec.min=Yrs.rec.min,
-              Yrs.rec.max=Yrs.rec.max,
-              N.rel=N.rel,N.rec=N.rec,Rec.ratio=Rec.ratio,FL.rel.min=FL.rel.min,FL.rel.max=FL.rel.max,FL.rec.min=FL.rec.min,
-              FL.rec.max=FL.rec.max,Rel.M=Rel.M,Rel.F=Rel.F,Rec.M=Rec.M,Rec.F=Rec.F,
-              TL.measured=TL.measured))
+  
+  TL.species=c('ZE','PC','FR','TN','PZ','PM','SR')     
+  Tabl1.list=vector('list',length(Vec.all.species))
+  names(Tabl1.list)=Vec.all.species
+  for (i in 1:length(Vec.all.species)) Tabl1.list[[i]]=Tab1.fun(Spec=Vec.all.species[i])
+  
+  Tabl1.matrix=matrix(nrow=length(Vec.all.species),ncol=length(Tabl1.list[[1]]))
+  
+  for (i in 1:length(Vec.all.species))Tabl1.matrix[i,]=do.call(cbind,Tabl1.list[[i]])
+  colnames(Tabl1.matrix)=names(Tabl1.list[[1]])
+  rownames(Tabl1.matrix)=Vec.all.species
+  
+  Tabl1.matrix=as.data.frame(Tabl1.matrix)
+  Tabl1.matrix$Species=rownames(Tabl1.matrix)
+  Tabl1.matrix=merge(Tabl1.matrix,Species.Codes[,1:2],by="Species")
+  Tabl1.matrix$N.rel=as.numeric(as.character(Tabl1.matrix$N.rel))
+  Tabl1.matrix=Tabl1.matrix[order(-Tabl1.matrix$N.rel),]
+  
+  setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
+  write.csv(Tabl1.matrix,"Paper/Table.A1.csv",row.names=F)
+  
+  #word table
+  Tabl1.doc=Tabl1.matrix %>%
+    mutate(across(where(is.factor), as.character),
+           N.rel=as.numeric(N.rel),
+           Rel.M=as.numeric(Rel.M),
+           Rel.F=as.numeric(Rel.F),
+           N.rec=as.numeric(N.rec),
+           Rec.M=as.numeric(Rec.M),
+           Rec.F=as.numeric(Rec.F),
+           FL.rel.min=as.numeric(FL.rel.min),
+           FL.rel.max=as.numeric(FL.rel.max),
+           FL.rec.min=as.numeric(FL.rec.min),
+           FL.rec.max=as.numeric(FL.rec.max))
+  
+  Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
+                        dplyr::select(Species,SCIENTIFIC_NAME),
+                      by='Species')%>%
+    mutate(SP=paste(COMMON_NAME," (",SCIENTIFIC_NAME,")",sep=''),
+           Rel.yr=paste(Yrs.rel.min,Yrs.rel.max,sep='-'),
+           Rec.yr=paste(Yrs.rec.min,Yrs.rec.max,sep='-'),
+           N.rel.u=N.rel-Rel.M-Rel.F,
+           N.rec.u=N.rec-Rec.M-Rec.F,
+           Rel.fl=paste(round(FL.rel.min),round(FL.rel.max),sep='-'),
+           Rec.fl=paste(round(FL.rec.min),round(FL.rec.max),sep='-'),
+           SP=ifelse(TL.measured=="TL",paste(SP,'*',sep=''),SP))%>%
+    dplyr::select(SP,Rel.yr,Rec.yr,Rel.M,Rel.F,N.rel.u,
+                  Rec.M,Rec.F,N.rec.u,Rec.ratio,Rel.fl,Rec.fl)%>%
+    rename(Species=SP,
+           Release.year=Rel.yr,
+           Recapture.year=Rec.yr,
+           Release.numbers.Male=Rel.M,
+           Release.numbers.Female=Rel.F,
+           Release.numbers.Unknown=N.rel.u,
+           Recapture.numbers.Male=Rec.M,
+           Recapture.numbers.Female=Rec.F,
+           Recapture.numbers.Unknown=N.rec.u,
+           Recapture.ratio=Rec.ratio)%>%
+    replace(is.na(.),'')%>%
+    mutate(Recapture.year=ifelse(Recapture.year=='NA-NA','',Recapture.year),
+           Rel.fl=ifelse(Rel.fl=='NA-NA','',Rel.fl),
+           Rec.fl=ifelse(Rec.fl=='NA-NA','',Rec.fl))%>%
+    rename('Size.range(cm).Release'=Rel.fl,
+           'Size.range(cm).Recapture'=Rec.fl)
+  #tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
   
 }
-
-TL.species=c('ZE','PC','FR','TN','PZ','PM','SR')     
-Tabl1.list=vector('list',length(Vec.all.species))
-names(Tabl1.list)=Vec.all.species
-for (i in 1:length(Vec.all.species)) Tabl1.list[[i]]=Tab1.fun(Spec=Vec.all.species[i])
-
-Tabl1.matrix=matrix(nrow=length(Vec.all.species),ncol=length(Tabl1.list[[1]]))
-
-for (i in 1:length(Vec.all.species))Tabl1.matrix[i,]=do.call(cbind,Tabl1.list[[i]])
-colnames(Tabl1.matrix)=names(Tabl1.list[[1]])
-rownames(Tabl1.matrix)=Vec.all.species
-
-Tabl1.matrix=as.data.frame(Tabl1.matrix)
-Tabl1.matrix$Species=rownames(Tabl1.matrix)
-Tabl1.matrix=merge(Tabl1.matrix,Species.Codes[,1:2],by="Species")
-Tabl1.matrix$N.rel=as.numeric(as.character(Tabl1.matrix$N.rel))
-Tabl1.matrix=Tabl1.matrix[order(-Tabl1.matrix$N.rel),]
-
-setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
-write.csv(Tabl1.matrix,"Paper/Table.A1.csv",row.names=F)
-
-#word table
-Tabl1.doc=Tabl1.matrix %>%
-          mutate(across(where(is.factor), as.character),
-                 N.rel=as.numeric(N.rel),
-                 Rel.M=as.numeric(Rel.M),
-                 Rel.F=as.numeric(Rel.F),
-                 N.rec=as.numeric(N.rec),
-                 Rec.M=as.numeric(Rec.M),
-                 Rec.F=as.numeric(Rec.F),
-                 FL.rel.min=as.numeric(FL.rel.min),
-                 FL.rel.max=as.numeric(FL.rel.max),
-                 FL.rec.min=as.numeric(FL.rec.min),
-                 FL.rec.max=as.numeric(FL.rec.max))
-
-Tabl1.doc=left_join(Tabl1.doc,Species.Codes%>%
-                         dplyr::select(Species,SCIENTIFIC_NAME),
-                       by='Species')%>%
-              mutate(SP=paste(COMMON_NAME," (",SCIENTIFIC_NAME,")",sep=''),
-                     Rel.yr=paste(Yrs.rel.min,Yrs.rel.max,sep='-'),
-                     Rec.yr=paste(Yrs.rec.min,Yrs.rec.max,sep='-'),
-                     N.rel.u=N.rel-Rel.M-Rel.F,
-                     N.rec.u=N.rec-Rec.M-Rec.F,
-                     Rel.fl=paste(round(FL.rel.min),round(FL.rel.max),sep='-'),
-                     Rec.fl=paste(round(FL.rec.min),round(FL.rec.max),sep='-'),
-                     SP=ifelse(TL.measured=="TL",paste(SP,'*',sep=''),SP))%>%
-              dplyr::select(SP,Rel.yr,Rec.yr,Rel.M,Rel.F,N.rel.u,
-                            Rec.M,Rec.F,N.rec.u,Rec.ratio,Rel.fl,Rec.fl)%>%
-              rename(Species=SP,
-                     Release.year=Rel.yr,
-                     Recapture.year=Rec.yr,
-                     Release.numbers.Male=Rel.M,
-                     Release.numbers.Female=Rel.F,
-                     Release.numbers.Unknown=N.rel.u,
-                     Recapture.numbers.Male=Rec.M,
-                     Recapture.numbers.Female=Rec.F,
-                     Recapture.numbers.Unknown=N.rec.u,
-                     Recapture.ratio=Rec.ratio)%>%
-            replace(is.na(.),'')%>%
-            mutate(Recapture.year=ifelse(Recapture.year=='NA-NA','',Recapture.year),
-                   Rel.fl=ifelse(Rel.fl=='NA-NA','',Rel.fl),
-                   Rec.fl=ifelse(Rec.fl=='NA-NA','',Rec.fl))%>%
-            rename('Size.range(cm).Release'=Rel.fl,
-                   'Size.range(cm).Recapture'=Rec.fl)
-#tab_df(Tabl1.doc,file="Paper/Table.A1.doc")
  
 
 
@@ -419,633 +445,653 @@ if(do.Colin)
 }
 
 # Chi-square test of sex ratios -----------------------------------------------------------
-
-X2.fun=function(Spec)
+if(do.paper)
 {
-  dat=subset(Tagging,Species==Spec)
-  dat.rec=subset(dat,Recaptured=="Yes")
-  
-  X2.rel=X2.rec=NA
-  
-  #sex ratio rel and rec
-  Sex.rel=table(dat$Sex)
-  id=match(c("M","F"),names(Sex.rel))
-  Sex.rel=Sex.rel[id]
-  if(sum(is.na(Sex.rel))>=1)Sex.rel=NULL
-  if(length(Sex.rel)>1)X2.rel=chisq.test(Sex.rel)
-
-  Sex.rec=NULL
-  Tab.out=NULL
-  if(nrow(dat.rec)>0)
+  X2.fun=function(Spec)
   {
-    Sex.rec=table(dat.rec$Sex)
-    id=match(c("M","F"),names(Sex.rec))
-    Sex.rec=Sex.rec[id]
-    if(sum(is.na(Sex.rec))>=1)Sex.rec=NULL
-    if(length(Sex.rec)>1)X2.rec=chisq.test(Sex.rec)
+    dat=subset(Tagging,Species==Spec)
+    dat.rec=subset(dat,Recaptured=="Yes")
     
-    if(Spec%in%SPECIES)Tab.out=data.frame(Species=dat$COMMON_NAME[1],
-                       M.rel=Sex.rel[1],
-                       F.rel=Sex.rel[2],
-                       X2.p=round(X2.rel$p.value,2),
-                       M.rec=Sex.rec[1],
-                       F.rec=Sex.rec[2],
-                       X2.rec.p=round(X2.rec$p.value,2))
+    X2.rel=X2.rec=NA
+    
+    #sex ratio rel and rec
+    Sex.rel=table(dat$Sex)
+    id=match(c("M","F"),names(Sex.rel))
+    Sex.rel=Sex.rel[id]
+    if(sum(is.na(Sex.rel))>=1)Sex.rel=NULL
+    if(length(Sex.rel)>1)X2.rel=chisq.test(Sex.rel)
+    
+    Sex.rec=NULL
+    Tab.out=NULL
+    if(nrow(dat.rec)>0)
+    {
+      Sex.rec=table(dat.rec$Sex)
+      id=match(c("M","F"),names(Sex.rec))
+      Sex.rec=Sex.rec[id]
+      if(sum(is.na(Sex.rec))>=1)Sex.rec=NULL
+      if(length(Sex.rec)>1)X2.rec=chisq.test(Sex.rec)
+      
+      if(Spec%in%SPECIES)Tab.out=data.frame(Species=dat$COMMON_NAME[1],
+                                            M.rel=Sex.rel[1],
+                                            F.rel=Sex.rel[2],
+                                            X2.p=round(X2.rel$p.value,2),
+                                            M.rec=Sex.rec[1],
+                                            F.rec=Sex.rec[2],
+                                            X2.rec.p=round(X2.rec$p.value,2))
+    }
+    return(list(n.rel=Sex.rel,X2.rel=X2.rel,n.rec=Sex.rec,X2.rec=X2.rec,Tab.out=Tab.out))
+    
   }
-  return(list(n.rel=Sex.rel,X2.rel=X2.rel,n.rec=Sex.rec,X2.rec=X2.rec,Tab.out=Tab.out))
+  X2.list=vector('list',length(Vec.all.species))
+  names(X2.list)=Vec.all.species
+  for (i in 1:length(Vec.all.species)) X2.list[[i]]=X2.fun(Spec=Vec.all.species[i])
   
+  Tab.Chi.sex=do.call(rbind,sapply(X2.list,function(x)x[5]))
+  rownames(Tab.Chi.sex)=NULL
+  tab_df(Tab.Chi.sex,file="Paper/Tabl.Chi.sex.doc")
 }
-X2.list=vector('list',length(Vec.all.species))
-names(X2.list)=Vec.all.species
-for (i in 1:length(Vec.all.species)) X2.list[[i]]=X2.fun(Spec=Vec.all.species[i])
 
-Tab.Chi.sex=do.call(rbind,sapply(X2.list,function(x)x[5]))
-rownames(Tab.Chi.sex)=NULL
-tab_df(Tab.Chi.sex,file="Paper/Tabl.Chi.sex.doc")
 
 # Recapture methods  -----------------------------------------------------------
-Rec.m=table(Tagging$COMMON_NAME,Tagging$CAPT_METHD)
-write.csv(Rec.m,"Recapture.methods.csv")
+if(do.paper)
+{
+  Rec.m=table(Tagging$COMMON_NAME,Tagging$CAPT_METHD)
+  write.csv(Rec.m,"Recapture.methods.csv")
+}
+
 
 # MAPPING  -----------------------------------------------------------
-add.depth="NO"
-
-Tagging$Lat.rec=with(Tagging,ifelse(Lat.rec==0,NA,Lat.rec))
-Tagging$Long.rec=with(Tagging,ifelse(Long.rec==0,NA,Long.rec))
-
-#Create corners for moving around land
-Exmouth=cbind(113.843,-21.81416)
-Shark.bay=cbind(112.921,-25.497)
-Mid.point=cbind(116.425,-35.043)
-Streaky.Bay=cbind(134.2052,-32.71551)
-Spencer=cbind(135.6149,-35.06194)
-North.West.Cape=c(114.1333,-21.8825)
-Cape.Leuwin=c(115.17,-34.35)
-Albany=c(117.8847,-34.7)
-
-#bathymetry
-if(add.depth=="YES")
+if(do.paper)
 {
-  Bathymetry=Bathymetry[order(Bathymetry$V1,Bathymetry$V2),]
-  xbat=sort(unique(Bathymetry$V1))
-  ybat=sort(unique(Bathymetry$V2))
-  reshaped=as.matrix(reshape(Bathymetry,idvar="V1", timevar="V2",v.names="V3", direction="wide"))
-}
-
-range.long=c(111,138)
-range.lat=c(-37,-11)
-
-data(worldLLhigh)
-
-#Function just showing releases and recaptures
-Map.fn=function(Spec,LABEL)
-{
-  dat=subset(Tagging,Species%in%Spec)
+  add.depth="NO"
   
-  plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey85", axes=F, xlab="", ylab="",
-          border="black",bg="grey99",plt = NULL)
-  points(dat$Long.rel,dat$Lat.rel,pch=21,col="grey30",cex=1.1,bg="grey60")
-  points(dat$Long.rec,dat$Lat.rec,pch=21,col="black",cex=1.25,bg="white")
+  Tagging$Lat.rec=with(Tagging,ifelse(Lat.rec==0,NA,Lat.rec))
+  Tagging$Long.rec=with(Tagging,ifelse(Long.rec==0,NA,Long.rec))
   
+  #Create corners for moving around land
+  Exmouth=cbind(113.843,-21.81416)
+  Shark.bay=cbind(112.921,-25.497)
+  Mid.point=cbind(116.425,-35.043)
+  Streaky.Bay=cbind(134.2052,-32.71551)
+  Spencer=cbind(135.6149,-35.06194)
+  North.West.Cape=c(114.1333,-21.8825)
+  Cape.Leuwin=c(115.17,-34.35)
+  Albany=c(117.8847,-34.7)
   
-  #add axis
-  axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = F,
-       tck=-0.035,las=1,cex.axis=1.2)
-  axis(side = 1, at = seq(range.long[1],range.long[2],1), labels = F,tck=-0.02) 
-  axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = F,
-       tck=-0.035,las=1,cex.axis=1.2)
-  axis(side = 2, at = seq(range.lat[1],range.lat[2],1), labels = F,tck=-0.02)
-  box()
-  contour(xbat, ybat, z=reshaped[,2:ncol(reshaped)],xlim=WOz.long, ylim=WOz.lat, zlim=c(-1,-300),nlevels = 3,
-          labcex=0.75,lty = c(1,2,3),col=c("gray10","gray30","gray60","transparent"),add=T)
-  legend("topright",LABEL,bty='n',cex=1.9)
-}
-
-#Function showing differences in sizes and release locations
-
-SPECs=list("BW","GM","WH","TK")
-FL.rng=list(c(100,200,300),c(50,100,150),c(50,100,150),c(50,150,250))
-names(FL.rng)=unlist(SPECs)
-ArEaS=list(c("closed","JANSF","WANCSF"),"WCDGDLF",c("JASDGDLF.zone1","JASDGDLF.zone2"))
-
-
-LABELS=list("Dusky shark","Gummy shark","Whiskery shark","Sandbar shark")
-
-# SPECs=list("BW","GM","WH","TK",c("LG","WW","CP","TG","NS","HZ","PN","MS","GR","GN","PZ","WB","WK"))
-# LABELS=list("Dusky shark","Gummy shark","Whiskery shark","Sandbar shark","Others")
-fn.inset1=function(XE,WHERE,PCHs,PiCCol,CiX,BGcol)
-{
-  
-  ColsS="black";Y1=108
-  
-  line.fn=function(LONG,LAT)lines(LONG,LAT,col=ColsS,lwd=1.5)
-  
-  par(fig=WHERE, new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
-  plotMap(worldLLhigh, xlim=c(Y1,range.long[2]), ylim=c(-36.5,-13),col="black", axes=F, xlab="", ylab="",
-          border="black",bg="white",plt = NULL)
-  line.fn(c(116.5,116.5),c(-36.5,-35))
-  text(123,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
-  text(123,-35.5,"(zone 2)",col=ColsS,cex=XE,font=2)
-  text(112,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
-  text(112,-35.5,"(zone 1)",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(Y1,115.6),c(-33,-33))
-  text(111.75,-30,"WCDGDLF",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(Y1,113.45),c(-26.5,-26.5))
-  text(111,-23,"Closed",col=ColsS,cex=XE,font=2)
-  text(111,-24,"area",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(114,114),c(-21.75,-17))
-  text(118,-19,"WANCSF",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(123.75,123.75),c(-16.12,-13))
-  text(126,-13.5,"JANSF",col=ColsS,cex=XE,font=2)
-  box(lwd=2)
-  
-  text(122,-24,"Western",col="white",cex=1,font=2)
-  text(122,-27,"Australia",col="white",cex=1,font=2)
-  
-  line.fn(c(129,129),c(-36.5,-31.7))
-  text(133,-27,"South",col="white",cex=0.8,font=2)
-  text(133,-28.75,"Australia",col="white",cex=0.8,font=2)
-  lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3)
-  
-  #turning points
-  points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  
-  
-}
-#fn.inset1(XE=0.8,WHERE=c(.375,.675,.85,.99),PCHs=21,PiCCol=1,CiX=1.25,BGcol="grey95")
-
-fn.inset=function(WHERE)
-{
-  par(fig=WHERE, new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
-  plotMap(worldLLhigh, xlim=c(108,155), ylim=c(-44,-10),
-          col="grey70",bg="white", axes=F, xlab="", ylab="",
-          border="black",plt = NULL)
-  
-  lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3) 
-  #lines(c(129,129),c(-36.5,-31.7),lwd=1.5,lty=3)
-  text(125,-23,"Western",col="black",cex=.7,font=2)
-  text(125,-27,"Australia",col="black",cex=.7,font=2)
-  
-  #text(133,-27,"South",col="white",cex=0.8,font=2)
-  #text(133,-28.75,"Australia",col="white",cex=0.8,font=2)
-  box(lwd=1.5)
-}
-
-fn.axis=function()
-{
-  axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = F,
-       tck=-0.035,las=1,cex.axis=1.2)
-  axis(side = 1, at = seq(range.long[1],range.long[2],1), labels = F,tck=-0.02) 
-  axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = F,
-       tck=-0.035,las=1,cex.axis=1.2)
-  axis(side = 2, at = seq(range.lat[1],range.lat[2],1), labels = F,tck=-0.02)
-  box()
-}
-
-
-
-blk.wht=TRUE
-if(blk.wht)
-{
-  Le.col=c("grey65","white","black")
-  BordeR=1
-}else
-{
-   Le.col=c(rgb(1,.1,.1,alpha=.3),
-            rgb(.1,1,.1,alpha=.3),
-            rgb(.1,.1,1,alpha=.3))
-   BordeR='transparent'
-}
-
-
-Map2.fn=function(Spec,BKS,y)
-{  
-  dat=subset(Tagging,Species%in%Spec & !is.na(Rel_FL))
-  
-  dat$col=cut(dat$Rel_FL,BKS)
-  CUTS=levels(dat$col)
-   dat$col=with(dat,ifelse(col==CUTS[1],Le.col[1],
-                    ifelse(col==CUTS[2],Le.col[2],
-                    ifelse(col==CUTS[3],Le.col[3],
-                    NA))))
-  if(Spec=="TK")
+  #bathymetry
+  if(add.depth=="YES")
   {
-    dat$Long.rels=with(dat,ifelse(Long.rels<114&Lat.rels>(-18),121,Long.rels))
-    dat$Long.rels=with(dat,ifelse(Long.rels<120.4& Long.rels>119.4 & Lat.rels>(-25.8) & Lat.rels<(-24.8),113.58,Long.rels))
-    dat$Long.rels=with(dat,ifelse(Long.rels<115.08& Long.rels>114.23 & Lat.rels>(-23.5) & Lat.rels<(-22.78),113.19,Long.rels))
+    Bathymetry=Bathymetry[order(Bathymetry$V1,Bathymetry$V2),]
+    xbat=sort(unique(Bathymetry$V1))
+    ybat=sort(unique(Bathymetry$V2))
+    reshaped=as.matrix(reshape(Bathymetry,idvar="V1", timevar="V2",v.names="V3", direction="wide"))
+  }
+  
+  range.long=c(111,138)
+  range.lat=c(-37,-11)
+  
+  data(worldLLhigh)
+  
+  #Function just showing releases and recaptures
+  Map.fn=function(Spec,LABEL)
+  {
+    dat=subset(Tagging,Species%in%Spec)
+    
+    plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey85", axes=F, xlab="", ylab="",
+            border="black",bg="grey99",plt = NULL)
+    points(dat$Long.rel,dat$Lat.rel,pch=21,col="grey30",cex=1.1,bg="grey60")
+    points(dat$Long.rec,dat$Lat.rec,pch=21,col="black",cex=1.25,bg="white")
+    
+    
+    #add axis
+    axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = F,
+         tck=-0.035,las=1,cex.axis=1.2)
+    axis(side = 1, at = seq(range.long[1],range.long[2],1), labels = F,tck=-0.02) 
+    axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = F,
+         tck=-0.035,las=1,cex.axis=1.2)
+    axis(side = 2, at = seq(range.lat[1],range.lat[2],1), labels = F,tck=-0.02)
+    box()
+    contour(xbat, ybat, z=reshaped[,2:ncol(reshaped)],xlim=WOz.long, ylim=WOz.lat, zlim=c(-1,-300),nlevels = 3,
+            labcex=0.75,lty = c(1,2,3),col=c("gray10","gray30","gray60","transparent"),add=T)
+    legend("topright",LABEL,bty='n',cex=1.9)
+  }
+  
+  #Function showing differences in sizes and release locations
+  
+  SPECs=list("BW","GM","WH","TK")
+  FL.rng=list(c(100,200,300),c(50,100,150),c(50,100,150),c(50,150,250))
+  names(FL.rng)=unlist(SPECs)
+  ArEaS=list(c("closed","JANSF","WANCSF"),"WCDGDLF",c("JASDGDLF.zone1","JASDGDLF.zone2"))
+  
+  
+  LABELS=list("Dusky shark","Gummy shark","Whiskery shark","Sandbar shark")
+  
+  # SPECs=list("BW","GM","WH","TK",c("LG","WW","CP","TG","NS","HZ","PN","MS","GR","GN","PZ","WB","WK"))
+  # LABELS=list("Dusky shark","Gummy shark","Whiskery shark","Sandbar shark","Others")
+  fn.inset1=function(XE,WHERE,PCHs,PiCCol,CiX,BGcol)
+  {
+    
+    ColsS="black";Y1=108
+    
+    line.fn=function(LONG,LAT)lines(LONG,LAT,col=ColsS,lwd=1.5)
+    
+    par(fig=WHERE, new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
+    plotMap(worldLLhigh, xlim=c(Y1,range.long[2]), ylim=c(-36.5,-13),col="black", axes=F, xlab="", ylab="",
+            border="black",bg="white",plt = NULL)
+    line.fn(c(116.5,116.5),c(-36.5,-35))
+    text(123,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
+    text(123,-35.5,"(zone 2)",col=ColsS,cex=XE,font=2)
+    text(112,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
+    text(112,-35.5,"(zone 1)",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(Y1,115.6),c(-33,-33))
+    text(111.75,-30,"WCDGDLF",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(Y1,113.45),c(-26.5,-26.5))
+    text(111,-23,"Closed",col=ColsS,cex=XE,font=2)
+    text(111,-24,"area",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(114,114),c(-21.75,-17))
+    text(118,-19,"WANCSF",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(123.75,123.75),c(-16.12,-13))
+    text(126,-13.5,"JANSF",col=ColsS,cex=XE,font=2)
+    box(lwd=2)
+    
+    text(122,-24,"Western",col="white",cex=1,font=2)
+    text(122,-27,"Australia",col="white",cex=1,font=2)
+    
+    line.fn(c(129,129),c(-36.5,-31.7))
+    text(133,-27,"South",col="white",cex=0.8,font=2)
+    text(133,-28.75,"Australia",col="white",cex=0.8,font=2)
+    lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3)
+    
+    #turning points
+    points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    
     
   }
-   if(Spec=="BW")
-   {
-     dat$Long.rels=with(dat,ifelse(Long.rels<115.53& Long.rels>114.56 & Lat.rels>(-28.55) & Lat.rels<(-27.78),113.9,Long.rels))
-     
-   }
+  #fn.inset1(XE=0.8,WHERE=c(.375,.675,.85,.99),PCHs=21,PiCCol=1,CiX=1.25,BGcol="grey95")
   
-  plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
-          border="black",bg="white",plt = NULL)
-  points(dat$Long.rels,dat$Lat.rels,pch=21,bg=dat$col,cex=1.2,col=BordeR)
-  fn.axis()
-  axis(side = 2, at = seq(range.lat[1],range.lat[2],4), 
-       labels = -seq(range.lat[1],range.lat[2],4),tck=-0.035,las=1,cex.axis=1.1)
-  if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
-                        labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.2) 
-  legend(107,-10,y,bty='n',cex=1.05,xjust=0) 
-  if(TIT=="YES") mtext("Release",3,line=0,cex=1.2)
-  
-  
-  plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
-          border="black",bg="white",plt = NULL)
-  points(dat$Long.rec,dat$Lat.rec,pch=21,col=BordeR,cex=1.2,bg=dat$col)
-  fn.axis()   
-  if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
-                        labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.1) 
-  if(TIT=="YES") mtext("Recapture",3,line=0,cex=1.2)
-}
-fn.lg=function(x)
-{
-  legend('right',x,bty='n',pch=rep(21,3),
-         pt.cex=1.5,pt.bg=Le.col,title="FL (cm)")
-}
-add="NO"
-TIT="YES"
-tiff(file="Paper/Figure1_Map.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
-par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
-Map2.fn("TK",BKS=c(0,100,150,270),"Sandbar shark")
-fn.lg(c("<100","100-150",">150"))
-TIT="NO"
-Map2.fn("BW",BKS=c(0,100,200,300),"Dusky shark")
-fn.lg(c("<100","100-200",">200"))
-Map2.fn("GM",BKS=c(0,90,120,200),"Gummy shark")
-fn.lg(c("<90","90-120",">120"))
-add="YES"
-Map2.fn("WH",BKS=c(0,90,120,200),"Whiskery shark")
-fn.lg(c("<90","90-120",">120"))
-mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
-mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
-fn.inset(WHERE=c(.2,.475,.75,.99))
-dev.off()
-
-
-add.Map.simple="NO"
-if(add.Map.simple=="YES")
-{
-  tiff(file="Paper/Map2.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-  par(mfcol=c(2,2),mai=c(.15,.15,.05,.05),oma=c(3,3,.01,.01))
-  #par(mfcol=c(2,2),mai=c(.5,.6,.05,.05),oma=c(.2,.2,.01,.01))
-  for(i in c(4,1:3))
+  fn.inset=function(WHERE)
   {
-    Map.fn(SPECs[[i]],LABELS[[i]])
-    if(i %in%c(1,3))
+    par(fig=WHERE, new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
+    plotMap(worldLLhigh, xlim=c(108,155), ylim=c(-44,-10),
+            col="grey70",bg="white", axes=F, xlab="", ylab="",
+            border="black",plt = NULL)
+    
+    lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3) 
+    #lines(c(129,129),c(-36.5,-31.7),lwd=1.5,lty=3)
+    text(125,-23,"Western",col="black",cex=.7,font=2)
+    text(125,-27,"Australia",col="black",cex=.7,font=2)
+    
+    #text(133,-27,"South",col="white",cex=0.8,font=2)
+    #text(133,-28.75,"Australia",col="white",cex=0.8,font=2)
+    box(lwd=1.5)
+  }
+  
+  fn.axis=function()
+  {
+    axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = F,
+         tck=-0.035,las=1,cex.axis=1.2)
+    axis(side = 1, at = seq(range.long[1],range.long[2],1), labels = F,tck=-0.02) 
+    axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = F,
+         tck=-0.035,las=1,cex.axis=1.2)
+    axis(side = 2, at = seq(range.lat[1],range.lat[2],1), labels = F,tck=-0.02)
+    box()
+  }
+  
+  
+  
+  blk.wht=TRUE
+  if(blk.wht)
+  {
+    Le.col=c("grey65","white","black")
+    BordeR=1
+  }else
+  {
+    Le.col=c(rgb(1,.1,.1,alpha=.3),
+             rgb(.1,1,.1,alpha=.3),
+             rgb(.1,.1,1,alpha=.3))
+    BordeR='transparent'
+  }
+  
+  
+  Map2.fn=function(Spec,BKS,y)
+  {  
+    dat=subset(Tagging,Species%in%Spec & !is.na(Rel_FL))
+    
+    dat$col=cut(dat$Rel_FL,BKS)
+    CUTS=levels(dat$col)
+    dat$col=with(dat,ifelse(col==CUTS[1],Le.col[1],
+                            ifelse(col==CUTS[2],Le.col[2],
+                                   ifelse(col==CUTS[3],Le.col[3],
+                                          NA))))
+    if(Spec=="TK")
     {
-      axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = seq(range.long[1],range.long[2],2),
-           tck=-0.035,las=1,cex.axis=1.2)
+      dat$Long.rels=with(dat,ifelse(Long.rels<114&Lat.rels>(-18),121,Long.rels))
+      dat$Long.rels=with(dat,ifelse(Long.rels<120.4& Long.rels>119.4 & Lat.rels>(-25.8) & Lat.rels<(-24.8),113.58,Long.rels))
+      dat$Long.rels=with(dat,ifelse(Long.rels<115.08& Long.rels>114.23 & Lat.rels>(-23.5) & Lat.rels<(-22.78),113.19,Long.rels))
+      
     }
-    if(i %in%c(1,4))
+    if(Spec=="BW")
     {
-      axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = seq(range.lat[1],range.lat[2],2)*-1,
-           tck=-0.035,las=1,cex.axis=1.2)
-    }
-    if(i==2)
-    {
-      PCHs=25
-      CiX=2.5
-      BGcol="black"
-      PiCCol= "white"
-      legend("right",c("released","recaptured"),bty='n',pch=21,col=c("grey30","black"),
-             pt.bg=c("grey60","white"),cex=1.75,pt.cex=2)
-      points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-      points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-      points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-      points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-      points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-      points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+      dat$Long.rels=with(dat,ifelse(Long.rels<115.53& Long.rels>114.56 & Lat.rels>(-28.55) & Lat.rels<(-27.78),113.9,Long.rels))
+      
     }
     
+    plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
+            border="black",bg="white",plt = NULL)
+    points(dat$Long.rels,dat$Lat.rels,pch=21,bg=dat$col,cex=1.2,col=BordeR)
+    fn.axis()
+    axis(side = 2, at = seq(range.lat[1],range.lat[2],4), 
+         labels = -seq(range.lat[1],range.lat[2],4),tck=-0.035,las=1,cex.axis=1.1)
+    if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
+                          labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.2) 
+    legend(107,-10,y,bty='n',cex=1.05,xjust=0) 
+    if(TIT=="YES") mtext("Release",3,line=0,cex=1.2)
+    
+    
+    plotMap(worldLLhigh, xlim=range.long, ylim=range.lat,col="grey97", axes=F, xlab="", ylab="",
+            border="black",bg="white",plt = NULL)
+    points(dat$Long.rec,dat$Lat.rec,pch=21,col=BordeR,cex=1.2,bg=dat$col)
+    fn.axis()   
+    if(add=="YES")   axis(side = 1, at = seq(range.long[1],range.long[2],4),
+                          labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.1) 
+    if(TIT=="YES") mtext("Recapture",3,line=0,cex=1.2)
   }
-  mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.5)
-  mtext("Longitude (?E)",side=1,outer=T,line=1.25,font=1,las=0,cex=1.5)
-  
-  #Add inset
-  XE=0.6;ColsS="black";Y1=108
-  
-  line.fn=function(LONG,LAT)lines(LONG,LAT,col=ColsS,lwd=1.5)
-  
-  par(fig=c(.0,.7,.685,.9), new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
-  plotMap(worldLLhigh, xlim=c(Y1,range.long[2]), ylim=c(-36.5,-13),col="black", axes=F, xlab="", ylab="",
-          border="black",bg="white",plt = NULL)
-  line.fn(c(116.5,116.5),c(-36.5,-35))
-  text(123,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
-  text(123,-35.5,"(zone 2)",col=ColsS,cex=XE,font=2)
-  text(112,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
-  text(112,-35.5,"(zone 1)",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(Y1,115.6),c(-33,-33))
-  text(111.75,-30,"WCDGDLF",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(Y1,113.45),c(-26.5,-26.5))
-  text(111,-23,"Closed",col=ColsS,cex=XE,font=2)
-  text(111,-24,"area",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(114,114),c(-21.75,-17))
-  text(118,-19,"WANCSF",col=ColsS,cex=XE,font=2)
-  
-  line.fn(c(123.75,123.75),c(-16.12,-13))
-  text(126,-13.5,"JANSF",col=ColsS,cex=XE,font=2)
-  box(lwd=2)
-  
-  text(122,-24,"Western",col="white",cex=1,font=2)
-  text(122,-27,"Australia",col="white",cex=1,font=2)
-  
-  line.fn(c(129,129),c(-36.5,-31.7))
-  text(132.5,-34,"South",col=ColsS,cex=XE*1.15,font=2)
-  text(132.5,-35.3,"Australia",col=ColsS,cex=XE*1.15,font=2)
-  lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3)
-  
+  fn.lg=function(x)
+  {
+    legend('right',x,bty='n',pch=rep(21,3),
+           pt.cex=1.5,pt.bg=Le.col,title="FL (cm)")
+  }
+  add="NO"
+  TIT="YES"
+  tiff(file="Paper/Figure1_Map.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
+  par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
+  Map2.fn("TK",BKS=c(0,100,150,270),"Sandbar shark")
+  fn.lg(c("<100","100-150",">150"))
+  TIT="NO"
+  Map2.fn("BW",BKS=c(0,100,200,300),"Dusky shark")
+  fn.lg(c("<100","100-200",">200"))
+  Map2.fn("GM",BKS=c(0,90,120,200),"Gummy shark")
+  fn.lg(c("<90","90-120",">120"))
+  add="YES"
+  Map2.fn("WH",BKS=c(0,90,120,200),"Whiskery shark")
+  fn.lg(c("<90","90-120",">120"))
+  mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
+  mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
+  fn.inset(WHERE=c(.2,.475,.75,.99))
   dev.off()
   
-}
-
-#Map Release and recaptures for other species
-Tabl1.matrix$N.rec=as.numeric(as.character(Tabl1.matrix$N.rec))
-Others.rep.map=subset(Tabl1.matrix,N.rec>=5 & !Species%in%c("TK", "BW","GM", "WH"))$Species
-add="NO"
-TIT="YES"
-tiff(file="Paper/Figure1_Map.Other.Species.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
-par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
-Map2.fn("TG",BKS=c(0,100,200,300),"Tiger shark")
-fn.lg(c("<100","100-200",">200"))
-TIT="NO"
-Map2.fn("CP",BKS=c(0,100,150,300),"Bronze whaler")
-fn.lg(c("<100","100-200",">200"))
-Map2.fn("WW",BKS=c(0,90,120,200),"Western wobbegong")
-fn.lg(c("<90","90-120",">120"))
-add="YES"
-Map2.fn("LG",BKS=c(0,90,120,200),"Spinner shark")
-fn.lg(c("<90","90-120",">120"))
-mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
-mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
-fn.inset(WHERE=c(.2,.475,.75,.99))
-dev.off()
-
-
-#Fig. A1. Zones and turning points
-do.Fig.A1="NO"
-if(do.Fig.A1=="YES")
-{
-  #Shark zones
-  library(rgdal)
-  JA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/JA_Northern_Shark.shp"), layer="JA_Northern_Shark") 
-  WA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthCoastShark_s43.shp"), layer="NorthCoastShark_s43") 
-  WA_Northern_Shark_2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthWestCoastShark_s43.shp"), layer="NorthWestCoastShark_s43") 
-  SDGDLL_zone1=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone1.shp"), layer="SDGDLL_zone1") 
-  SDGDLL_zone2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone2.shp"), layer="SDGDLL_zone2") 
-  WCDGDLL=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/WCDGDLL.shp"), layer="WCDGDLL") 
   
-  Y=range.lat
-  Y[1]=-39
+  add.Map.simple="NO"
+  if(add.Map.simple=="YES")
+  {
+    tiff(file="Paper/Map2.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    par(mfcol=c(2,2),mai=c(.15,.15,.05,.05),oma=c(3,3,.01,.01))
+    #par(mfcol=c(2,2),mai=c(.5,.6,.05,.05),oma=c(.2,.2,.01,.01))
+    for(i in c(4,1:3))
+    {
+      Map.fn(SPECs[[i]],LABELS[[i]])
+      if(i %in%c(1,3))
+      {
+        axis(side = 1, at = seq(range.long[1],range.long[2],2), labels = seq(range.long[1],range.long[2],2),
+             tck=-0.035,las=1,cex.axis=1.2)
+      }
+      if(i %in%c(1,4))
+      {
+        axis(side = 2, at = seq(range.lat[1],range.lat[2],2), labels = seq(range.lat[1],range.lat[2],2)*-1,
+             tck=-0.035,las=1,cex.axis=1.2)
+      }
+      if(i==2)
+      {
+        PCHs=25
+        CiX=2.5
+        BGcol="black"
+        PiCCol= "white"
+        legend("right",c("released","recaptured"),bty='n',pch=21,col=c("grey30","black"),
+               pt.bg=c("grey60","white"),cex=1.75,pt.cex=2)
+        points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+        points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+        points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+        points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+        points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+        points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+      }
+      
+    }
+    mtext("Latitude (?S)",side=2,outer=T,line=1.5,font=1,las=0,cex=1.5)
+    mtext("Longitude (?E)",side=1,outer=T,line=1.25,font=1,las=0,cex=1.5)
+    
+    #Add inset
+    XE=0.6;ColsS="black";Y1=108
+    
+    line.fn=function(LONG,LAT)lines(LONG,LAT,col=ColsS,lwd=1.5)
+    
+    par(fig=c(.0,.7,.685,.9), new = T,mgp=c(.1,.4,0),mai=c(.01,.01,.01,.01))
+    plotMap(worldLLhigh, xlim=c(Y1,range.long[2]), ylim=c(-36.5,-13),col="black", axes=F, xlab="", ylab="",
+            border="black",bg="white",plt = NULL)
+    line.fn(c(116.5,116.5),c(-36.5,-35))
+    text(123,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
+    text(123,-35.5,"(zone 2)",col=ColsS,cex=XE,font=2)
+    text(112,-34.5,"JASDGDLF",col=ColsS,cex=XE,font=2)
+    text(112,-35.5,"(zone 1)",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(Y1,115.6),c(-33,-33))
+    text(111.75,-30,"WCDGDLF",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(Y1,113.45),c(-26.5,-26.5))
+    text(111,-23,"Closed",col=ColsS,cex=XE,font=2)
+    text(111,-24,"area",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(114,114),c(-21.75,-17))
+    text(118,-19,"WANCSF",col=ColsS,cex=XE,font=2)
+    
+    line.fn(c(123.75,123.75),c(-16.12,-13))
+    text(126,-13.5,"JANSF",col=ColsS,cex=XE,font=2)
+    box(lwd=2)
+    
+    text(122,-24,"Western",col="white",cex=1,font=2)
+    text(122,-27,"Australia",col="white",cex=1,font=2)
+    
+    line.fn(c(129,129),c(-36.5,-31.7))
+    text(132.5,-34,"South",col=ColsS,cex=XE*1.15,font=2)
+    text(132.5,-35.3,"Australia",col=ColsS,cex=XE*1.15,font=2)
+    lines(c(129,129),c(-31.7,-14.99),col="white",lwd=1.5,lty=3)
+    
+    dev.off()
+    
+  }
   
-  tiff(file="Paper/MapA1.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
-  par(mfrow=c(1,1),mai=c(.05,.05,.05,.05),oma=c(3,1,1,.01),mgp=c(1,.75,0))
-  
-  plotMap(worldLLhigh, xlim=range.long, ylim=Y,col="grey90", axes=F, xlab="", ylab="",
-          border="black",bg="white",plt = NULL)  
-  
-  #Add zones
-  plot(WA_Northern_Shark,add=T,col="grey85")
-  plot(JA_Northern_Shark,ylim=Y,xlim=range.long,add=T,col="grey60")
-  plot(WA_Northern_Shark_2,add=T,col="grey70",angle=0,density=seq(5,35,2))
-  plot(WA_Northern_Shark_2,add=T,col="grey70",angle=90,density=seq(5,35,2))
-  plot(WCDGDLL,add=T,col="grey70")
-  plot(SDGDLL_zone1,add=T,col="white")
-  plot(SDGDLL_zone2,add=T,col="grey55")
-  box()
-  
-  #turning points
-  PCHs=21;PiCCol=1;CiX=2;BGcol="white"
-  points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(North.West.Cape[1]*1.04,North.West.Cape[2]*1.01,"North West Cape",cex=1,font=2)
-  
-  points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(Shark.bay[1]*1.03,Shark.bay[2],"Shark Bay",cex=1,font=2)
-  
-  points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(Cape.Leuwin[1]*1.025,Cape.Leuwin[2]*0.94,"Cape Leeuwin",cex=1,font=2,srt=45)
-  
-  points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(Albany[1]*1.0125,Albany[2]*0.955,"Albany",cex=1,font=2,srt=45)
-  
-  points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(Streaky.Bay[1]*1.005,Streaky.Bay[2]*0.91,"Streaky Bay",cex=1,font=2,srt=80)
-  
-  points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
-  text(Spencer[1]*1.005,Spencer[2]*0.91,"Port Lincoln",cex=1,font=2,srt=80)
-  
-  XE=1.25;ColsS=1
-  text(117,-35.6,"JASDGDLF",col=ColsS,cex=XE,font=2)
-  text(123,-36.5,"(zone 2)",col=ColsS,cex=XE-0.1,font=2)
-  text(113.5,-36.5,"(zone 1)",col=ColsS,cex=XE-0.1,font=2,, srt=320)
-  text(112.5,-30,"WCDGDLF",col=ColsS,cex=XE,font=2, srt=90)
-  text(112,-22,"Closed",col=ColsS,cex=XE,font=2, srt=75)
-  
-  text(118.5,-17,"WANCSF",col=ColsS,cex=XE,font=2, srt=40)
-  
-  text(126.5,-13,"JANSF",col=ColsS,cex=XE,font=2)
-  text(132,-34,"South",col=ColsS,cex=XE,font=2)
-  text(132,-35.25,"Australia",col=ColsS,cex=XE,font=2)
-  
-  lines(rbind(129,129),rbind(-15,-31.5),lty=2,col="black",lwd=2)
-  text(122,-24,"Western",col=1,cex=2,font=2)
-  text(122,-28,"Australia",col=1,cex=2,font=2)
-  
-  axis(side = 2, at = seq(Y[1],Y[2],4), 
-       labels = -seq(Y[1],Y[2],4),tck=-0.02,las=1,cex.axis=1.35)
-  axis(side = 1, at = seq(range.long[1],range.long[2],4),
-       labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.35) 
-  
-  
-  mtext("Latitude (?S)",side=2,outer=T,line=-1,font=1,las=0,cex=2)
-  mtext("Longitude (?E)",side=1,outer=T,line=1.75,font=1,las=0,cex=2)
+  #Map Release and recaptures for other species
+  Tabl1.matrix$N.rec=as.numeric(as.character(Tabl1.matrix$N.rec))
+  Others.rep.map=subset(Tabl1.matrix,N.rec>=5 & !Species%in%c("TK", "BW","GM", "WH"))$Species
+  add="NO"
+  TIT="YES"
+  tiff(file="Paper/Figure1_Map.Other.Species.tiff",width = 1000, height = 2000,units = "px", res = 300,compression = "lzw")
+  par(mfrow=c(4,2),mai=c(.05,.05,.05,.05),oma=c(3,3,1,.01),mgp=c(1,.5,0))
+  Map2.fn("TG",BKS=c(0,100,200,300),"Tiger shark")
+  fn.lg(c("<100","100-200",">200"))
+  TIT="NO"
+  Map2.fn("CP",BKS=c(0,100,150,300),"Bronze whaler")
+  fn.lg(c("<100","100-200",">200"))
+  Map2.fn("WW",BKS=c(0,90,120,200),"Western wobbegong")
+  fn.lg(c("<90","90-120",">120"))
+  add="YES"
+  Map2.fn("LG",BKS=c(0,90,120,200),"Spinner shark")
+  fn.lg(c("<90","90-120",">120"))
+  mtext(expression("Latitude ("*~degree*S*")"),side=2,outer=T,line=1.35,font=1,las=0,cex=1.2)
+  mtext(expression("Longitude ("*~degree*E*")"),side=1,outer=T,line=1.75,font=1,las=0,cex=1.2)
+  fn.inset(WHERE=c(.2,.475,.75,.99))
   dev.off()
   
+  
+  #Fig. A1. Zones and turning points
+  do.Fig.A1="NO"
+  if(do.Fig.A1=="YES")
+  {
+    #Shark zones
+    library(rgdal)
+    JA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/JA_Northern_Shark.shp"), layer="JA_Northern_Shark") 
+    WA_Northern_Shark=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthCoastShark_s43.shp"), layer="NorthCoastShark_s43") 
+    WA_Northern_Shark_2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/NorthWestCoastShark_s43.shp"), layer="NorthWestCoastShark_s43") 
+    SDGDLL_zone1=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone1.shp"), layer="SDGDLL_zone1") 
+    SDGDLL_zone2=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/SDGDLL_zone2.shp"), layer="SDGDLL_zone2") 
+    WCDGDLL=readOGR(handl_OneDrive("Data/Mapping/Shark_shape_files/WCDGDLL.shp"), layer="WCDGDLL") 
+    
+    Y=range.lat
+    Y[1]=-39
+    
+    tiff(file="Paper/MapA1.tiff",width = 2000, height = 2000,units = "px", res = 300,compression = "lzw")
+    par(mfrow=c(1,1),mai=c(.05,.05,.05,.05),oma=c(3,1,1,.01),mgp=c(1,.75,0))
+    
+    plotMap(worldLLhigh, xlim=range.long, ylim=Y,col="grey90", axes=F, xlab="", ylab="",
+            border="black",bg="white",plt = NULL)  
+    
+    #Add zones
+    plot(WA_Northern_Shark,add=T,col="grey85")
+    plot(JA_Northern_Shark,ylim=Y,xlim=range.long,add=T,col="grey60")
+    plot(WA_Northern_Shark_2,add=T,col="grey70",angle=0,density=seq(5,35,2))
+    plot(WA_Northern_Shark_2,add=T,col="grey70",angle=90,density=seq(5,35,2))
+    plot(WCDGDLL,add=T,col="grey70")
+    plot(SDGDLL_zone1,add=T,col="white")
+    plot(SDGDLL_zone2,add=T,col="grey55")
+    box()
+    
+    #turning points
+    PCHs=21;PiCCol=1;CiX=2;BGcol="white"
+    points(North.West.Cape[1],North.West.Cape[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(North.West.Cape[1]*1.04,North.West.Cape[2]*1.01,"North West Cape",cex=1,font=2)
+    
+    points(Shark.bay[1],Shark.bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(Shark.bay[1]*1.03,Shark.bay[2],"Shark Bay",cex=1,font=2)
+    
+    points(Cape.Leuwin[1],Cape.Leuwin[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(Cape.Leuwin[1]*1.025,Cape.Leuwin[2]*0.94,"Cape Leeuwin",cex=1,font=2,srt=45)
+    
+    points(Albany[1],Albany[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(Albany[1]*1.0125,Albany[2]*0.955,"Albany",cex=1,font=2,srt=45)
+    
+    points(Streaky.Bay[1],Streaky.Bay[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(Streaky.Bay[1]*1.005,Streaky.Bay[2]*0.91,"Streaky Bay",cex=1,font=2,srt=80)
+    
+    points(Spencer[1],Spencer[2],pch=PCHs,col=PiCCol,cex=CiX,bg=BGcol)
+    text(Spencer[1]*1.005,Spencer[2]*0.91,"Port Lincoln",cex=1,font=2,srt=80)
+    
+    XE=1.25;ColsS=1
+    text(117,-35.6,"JASDGDLF",col=ColsS,cex=XE,font=2)
+    text(123,-36.5,"(zone 2)",col=ColsS,cex=XE-0.1,font=2)
+    text(113.5,-36.5,"(zone 1)",col=ColsS,cex=XE-0.1,font=2,, srt=320)
+    text(112.5,-30,"WCDGDLF",col=ColsS,cex=XE,font=2, srt=90)
+    text(112,-22,"Closed",col=ColsS,cex=XE,font=2, srt=75)
+    
+    text(118.5,-17,"WANCSF",col=ColsS,cex=XE,font=2, srt=40)
+    
+    text(126.5,-13,"JANSF",col=ColsS,cex=XE,font=2)
+    text(132,-34,"South",col=ColsS,cex=XE,font=2)
+    text(132,-35.25,"Australia",col=ColsS,cex=XE,font=2)
+    
+    lines(rbind(129,129),rbind(-15,-31.5),lty=2,col="black",lwd=2)
+    text(122,-24,"Western",col=1,cex=2,font=2)
+    text(122,-28,"Australia",col=1,cex=2,font=2)
+    
+    axis(side = 2, at = seq(Y[1],Y[2],4), 
+         labels = -seq(Y[1],Y[2],4),tck=-0.02,las=1,cex.axis=1.35)
+    axis(side = 1, at = seq(range.long[1],range.long[2],4),
+         labels = seq(range.long[1],range.long[2],4),tck=-0.02,cex.axis=1.35) 
+    
+    
+    mtext("Latitude (?S)",side=2,outer=T,line=-1,font=1,las=0,cex=2)
+    mtext("Longitude (?E)",side=1,outer=T,line=1.75,font=1,las=0,cex=2)
+    dev.off()
+    
+    
+  }
   
 }
 
 
 # Size frequency of releases  -----------------------------------------------------------
 #note: dodgy recapture size info, don't use, only report size at release
-
-SizeFreq.rel.fn=function(SPEC,YARROW)
+if(do.paper)
 {
-  datos=subset(Tagging,Species==SPEC)
-  datos1=subset(datos,Recaptured=="Yes")
-  
-  datos1=subset(datos1,!is.na(Rel_FL))
-  datos=subset(datos,!is.na(Rel_FL) & Recaptured=="No")
-  
-  Rango=range(c(datos1$Rel_FL,datos$Rel_FL),na.rm=T)
-  Rango[1]=floor(Rango[1]/10)*10
-  Rango[2]=ceiling(Rango[2]/10)*10
-  Bks=seq(Rango[1],Rango[2],10)
-  Rec.FL=hist(datos1$Rel_FL,breaks=Bks,plot=F)
-  NotRec.FL=hist(datos$Rel_FL,breaks=Bks,plot=F)
-  xvals=barplot(rbind(NotRec.FL$counts,Rec.FL$counts),beside=T,names.arg=Rec.FL$mids,
-                col=c("grey80","grey40"),cex.axis=1.25,cex.names=1.25)
-  axis(1,xvals[1,]+0.5,F)
-  
-  legend("topright",Species.names[i],bty="n",cex=1.75)
-   
-  id=which(abs(NotRec.FL$mids-size.mat[i])==min(abs(NotRec.FL$mids-size.mat[i])))
-  id=id[length(id)]
-  HERE=0
-  arrows(xvals[1,id],YARROW,xvals[1,id],0,lwd=3,length = 0.15)
-  #points(xvals[1,id],HERE,pch="*",cex=3)
-  box()
-  
-  #KS test
-  Kolmo=ks.test(datos$Rel_FL,datos1$Rel_FL)
-  
-  #Gear used for tagging and recapturing
-  Table.GR.NoRec.rel=table(datos$REL_METHD)
-  Table.GR.Rec.rel=table(datos1$REL_METHD)
-  Table.GR.Rec.rec=table(datos1$CAPT_METHD)
-  
-  return(list(Kolmo=Kolmo,Table.GR.NoRec.rel=Table.GR.NoRec.rel,
-        Table.GR.Rec.rel=Table.GR.Rec.rel,Table.GR.Rec.rec=Table.GR.Rec.rec))
-}
-
-KS.result=vector("list",length(SPECIES))
-names(KS.result)=Species.names
-yArrow=c(200,200,35,35)
-tiff(file="Paper/Figure2.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-par(mfcol=c(2,2),oma=c(3,4,1.5,.1),mar=c(1,1,1,2),mgp=c(1, 0.75, 0),las=1)
-for(i in 1:length(SPECIES)) 
-{
-  KS.result[[i]]=SizeFreq.rel.fn(SPEC=SPECIES[i],YARROW=yArrow[i])
-  if(i==2) legend("right",c("Non-recaptured","Recaptured"),fill=c('gray80','gray40'),bty="n",cex=1.25)
-}
-mtext("Fork length (cm)",side=1,outer=T,line=1.5,font=1,las=0,cex=2)
-mtext("Frequency",side=2,outer=T,line=2.1,font=1,las=0,cex=2)
-dev.off()
-Tab.Kolmo=as.data.frame(do.call(rbind,sapply(KS.result,function(x)x[1])))
-Tab.Kolmo=cbind(Species=names(SPECIES),Tab.Kolmo)
-Tab.Kolmo=data.frame(Species=unlist(Tab.Kolmo$Species),
-                      statistic=unlist(Tab.Kolmo$statistic),
-                      p.value=unlist(Tab.Kolmo$p.value))
-rownames(Tab.Kolmo)=NULL
-tab_df(Tab.Kolmo,file="Paper/Tabl.Kolmo.Smirnov.doc")
-
-
-size.at.dat=data.frame(x=size.mat,y=.015,COMMON_NAME=names(size.mat),
-                       x2=size.mat,y2=0)
-Tagging%>%
-  mutate(Rec=ifelse(Recaptured=="Yes","Recaptured","Not recaptured"))%>%
-  filter(!is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
-  ggplot(aes(x=Rel_FL, fill=COMMON_NAME)) +
-  geom_density(alpha=0.4) +
-  geom_segment( aes(x = x, y = y, xend = x2, yend = y2, colour = COMMON_NAME), data = size.at.dat,
-                size = 1.5,arrow = arrow(length = unit(0.2, "inches")), show.legend = F)+
-  facet_wrap(~ Rec, ncol = 1)+xlab("Fork length (cm)") + 
-  ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
-  theme(axis.text=element_text(size=12),
-        axis.title=element_text(size=14),
-        legend.text=element_text(size=12),
-        legend.title=element_text(size=14),
-        strip.text = element_text(size=14))
-ggsave("Paper/Figure2_density.tiff", width = 6,height = 10, dpi = 300,compression = "lzw")
-
-
-#release depth distribution
-Tagging%>%
-  filter(BOTDEPTH<400 & !is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
-  left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
-  mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))%>%
-  ggplot(aes(x=BOTDEPTH, fill=COMMON_NAME)) +
-  geom_density(alpha=0.4) +
-  facet_wrap(~ Mature, ncol = 1)+ xlab("Bottom depth (m)") + 
-  ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
-  theme(axis.text=element_text(size=8),
-        axis.title=element_text(size=10),
-        legend.text=element_text(size=8),
-        legend.title=element_text(size=10),
-        strip.text = element_text(size=10))
-ggsave("Paper/FigureX_release.depth.dist.tiff", width = 4,height = 6, dpi = 300,compression = "lzw")
-
-fun.depth.stats=function(SPEC)
-{
-  Dat=Tagging%>%
-    filter(Species==SPEC)%>%
-    filter(!is.na(BOTDEPTH))%>%
-    filter(BOTDEPTH<400 & !is.na(Rel_FL))%>%
-    left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
-    mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))
+  SizeFreq.rel.fn=function(SPEC,YARROW)
+  {
+    datos=subset(Tagging,Species==SPEC)
+    datos1=subset(datos,Recaptured=="Yes")
     
-  z=Dat%>%
-    group_by(Mature)%>%
-    summarise(Median=median(BOTDEPTH),
-              Low.95=quantile(BOTDEPTH,probs=0.025),
-              Up.95=quantile(BOTDEPTH,probs=0.975),
-              Min=min(BOTDEPTH),
-              Max=max(BOTDEPTH))
-  return(cbind(Species=Dat$COMMON_NAME[1],z))
+    datos1=subset(datos1,!is.na(Rel_FL))
+    datos=subset(datos,!is.na(Rel_FL) & Recaptured=="No")
+    
+    Rango=range(c(datos1$Rel_FL,datos$Rel_FL),na.rm=T)
+    Rango[1]=floor(Rango[1]/10)*10
+    Rango[2]=ceiling(Rango[2]/10)*10
+    Bks=seq(Rango[1],Rango[2],10)
+    Rec.FL=hist(datos1$Rel_FL,breaks=Bks,plot=F)
+    NotRec.FL=hist(datos$Rel_FL,breaks=Bks,plot=F)
+    xvals=barplot(rbind(NotRec.FL$counts,Rec.FL$counts),beside=T,names.arg=Rec.FL$mids,
+                  col=c("grey80","grey40"),cex.axis=1.25,cex.names=1.25)
+    axis(1,xvals[1,]+0.5,F)
+    
+    legend("topright",Species.names[i],bty="n",cex=1.75)
+    
+    id=which(abs(NotRec.FL$mids-size.mat[i])==min(abs(NotRec.FL$mids-size.mat[i])))
+    id=id[length(id)]
+    HERE=0
+    arrows(xvals[1,id],YARROW,xvals[1,id],0,lwd=3,length = 0.15)
+    #points(xvals[1,id],HERE,pch="*",cex=3)
+    box()
+    
+    #KS test
+    Kolmo=ks.test(datos$Rel_FL,datos1$Rel_FL)
+    
+    #Gear used for tagging and recapturing
+    Table.GR.NoRec.rel=table(datos$REL_METHD)
+    Table.GR.Rec.rel=table(datos1$REL_METHD)
+    Table.GR.Rec.rec=table(datos1$CAPT_METHD)
+    
+    return(list(Kolmo=Kolmo,Table.GR.NoRec.rel=Table.GR.NoRec.rel,
+                Table.GR.Rec.rel=Table.GR.Rec.rel,Table.GR.Rec.rec=Table.GR.Rec.rec))
+  }
+  
+  KS.result=vector("list",length(SPECIES))
+  names(KS.result)=Species.names
+  yArrow=c(200,200,35,35)
+  tiff(file="Paper/Figure2.tiff",width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+  par(mfcol=c(2,2),oma=c(3,4,1.5,.1),mar=c(1,1,1,2),mgp=c(1, 0.75, 0),las=1)
+  for(i in 1:length(SPECIES)) 
+  {
+    KS.result[[i]]=SizeFreq.rel.fn(SPEC=SPECIES[i],YARROW=yArrow[i])
+    if(i==2) legend("right",c("Non-recaptured","Recaptured"),fill=c('gray80','gray40'),bty="n",cex=1.25)
+  }
+  mtext("Fork length (cm)",side=1,outer=T,line=1.5,font=1,las=0,cex=2)
+  mtext("Frequency",side=2,outer=T,line=2.1,font=1,las=0,cex=2)
+  dev.off()
+  Tab.Kolmo=as.data.frame(do.call(rbind,sapply(KS.result,function(x)x[1])))
+  Tab.Kolmo=cbind(Species=names(SPECIES),Tab.Kolmo)
+  Tab.Kolmo=data.frame(Species=unlist(Tab.Kolmo$Species),
+                       statistic=unlist(Tab.Kolmo$statistic),
+                       p.value=unlist(Tab.Kolmo$p.value))
+  rownames(Tab.Kolmo)=NULL
+  tab_df(Tab.Kolmo,file="Paper/Tabl.Kolmo.Smirnov.doc")
+  
+  
+  size.at.dat=data.frame(x=size.mat,y=.015,COMMON_NAME=names(size.mat),
+                         x2=size.mat,y2=0)
+  Tagging%>%
+    mutate(Rec=ifelse(Recaptured=="Yes","Recaptured","Not recaptured"))%>%
+    filter(!is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
+    ggplot(aes(x=Rel_FL, fill=COMMON_NAME)) +
+    geom_density(alpha=0.4) +
+    geom_segment( aes(x = x, y = y, xend = x2, yend = y2, colour = COMMON_NAME), data = size.at.dat,
+                  size = 1.5,arrow = arrow(length = unit(0.2, "inches")), show.legend = F)+
+    facet_wrap(~ Rec, ncol = 1)+xlab("Fork length (cm)") + 
+    ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
+    theme(axis.text=element_text(size=12),
+          axis.title=element_text(size=14),
+          legend.text=element_text(size=12),
+          legend.title=element_text(size=14),
+          strip.text = element_text(size=14))
+  ggsave("Paper/Figure2_density.tiff", width = 6,height = 10, dpi = 300,compression = "lzw")
+  
+  
+  #release depth distribution
+  Tagging%>%
+    filter(BOTDEPTH<400 & !is.na(Rel_FL) & Species%in%c('TK','GM','BW','WH'))%>%
+    left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
+    mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))%>%
+    ggplot(aes(x=BOTDEPTH, fill=COMMON_NAME)) +
+    geom_density(alpha=0.4) +
+    facet_wrap(~ Mature, ncol = 1)+ xlab("Bottom depth (m)") + 
+    ylab("Density") + theme_bw() +labs(fill = "Species")+ theme(legend.position = c(0.8, 0.2))+
+    theme(axis.text=element_text(size=8),
+          axis.title=element_text(size=10),
+          legend.text=element_text(size=8),
+          legend.title=element_text(size=10),
+          strip.text = element_text(size=10))
+  ggsave("Paper/FigureX_release.depth.dist.tiff", width = 4,height = 6, dpi = 300,compression = "lzw")
+  
+  fun.depth.stats=function(SPEC)
+  {
+    Dat=Tagging%>%
+      filter(Species==SPEC)%>%
+      filter(!is.na(BOTDEPTH))%>%
+      filter(BOTDEPTH<400 & !is.na(Rel_FL))%>%
+      left_join(size.at.dat[,c("x","COMMON_NAME")],by="COMMON_NAME")%>%
+      mutate(Mature=ifelse(Rel_FL>=x,"Mature","Immature"))
+    
+    z=Dat%>%
+      group_by(Mature)%>%
+      summarise(Median=median(BOTDEPTH),
+                Low.95=quantile(BOTDEPTH,probs=0.025),
+                Up.95=quantile(BOTDEPTH,probs=0.975),
+                Min=min(BOTDEPTH),
+                Max=max(BOTDEPTH))
+    return(cbind(Species=Dat$COMMON_NAME[1],z))
+  }
+  STORE.z=vector('list',length=length(SPECIES))
+  names(STORE.z)=SPECIES
+  for (i in 1:length(SPECIES)) STORE.z[[i]]=fun.depth.stats(SPEC=SPECIES[i])
+  Combined=do.call(rbind,STORE.z)
+  rownames(Combined)=NULL
+  tab_df(Combined,file="Paper/Tabl_depth.release.doc")
+  
 }
-STORE.z=vector('list',length=length(SPECIES))
-names(STORE.z)=SPECIES
-for (i in 1:length(SPECIES)) STORE.z[[i]]=fun.depth.stats(SPEC=SPECIES[i])
-Combined=do.call(rbind,STORE.z)
-rownames(Combined)=NULL
-tab_df(Combined,file="Paper/Tabl_depth.release.doc")
-
-
 
 # Proportion of individuals in different release condition  -----------------------------------------------------------
-Prop.fn=function(SPEC)
+if(do.paper)
 {
-  datos.All=subset(Tagging,Species==SPEC)
-  datos=subset(datos.All,Recaptured=="Yes")
+  Prop.fn=function(SPEC)
+  {
+    datos.All=subset(Tagging,Species==SPEC)
+    datos=subset(datos.All,Recaptured=="Yes")
+    
+    Cond=(table(datos$CONDITION))
+    Cond.all=(table(datos.All$CONDITION))
+    
+    Cond=Cond[match(c("1","2","3"),names(Cond))]
+    Cond.all=Cond.all[match(c("1","2","3"),names(Cond.all))]
+    
+    Condition=data.frame(Rec=Cond,Rel=Cond.all)
+    
+    #Chi-square distribution
+    Xsq <- chisq.test(as.table(as.matrix(Condition)))
+    return(Xsq)
+  }
+  Xsq.Cond=Xsq.SexRatio=KS.result
+  #for(i in 1:length(SPECIES)) Xsq.Cond[[i]]=Prop.fn(SPECIES[i])
   
-  Cond=(table(datos$CONDITION))
-  Cond.all=(table(datos.All$CONDITION))
-  
-  Cond=Cond[match(c("1","2","3"),names(Cond))]
-  Cond.all=Cond.all[match(c("1","2","3"),names(Cond.all))]
-  
-  Condition=data.frame(Rec=Cond,Rel=Cond.all)
-  
-  #Chi-square distribution
-  Xsq <- chisq.test(as.table(as.matrix(Condition)))
-  return(Xsq)
 }
-Xsq.Cond=Xsq.SexRatio=KS.result
-#for(i in 1:length(SPECIES)) Xsq.Cond[[i]]=Prop.fn(SPECIES[i])
 
 
 # Sex ratios of release and recapture individuals  -----------------------------------------------------------
-SexRatio.fn=function(SPEC)
+if(do.paper)
 {
-  datos.All=subset(Tagging,Species==SPEC)
-  datos=subset(datos.All,Recaptured=="Yes")
+  SexRatio.fn=function(SPEC)
+  {
+    datos.All=subset(Tagging,Species==SPEC)
+    datos=subset(datos.All,Recaptured=="Yes")
+    
+    Cond=(table(datos$Sex))
+    Cond.all=(table(datos.All$Sex))
+    
+    Cond=Cond[match(c("F","M"),names(Cond))]
+    Cond.all=Cond.all[match(c("F","M"),names(Cond.all))]
+    Condition=data.frame(Rec=Cond,Rel=Cond.all)
+    
+    #Chi-square distribution
+    Xsq <- chisq.test(as.table(as.matrix(Condition)))
+    return(list(Xsq=Xsq,ratio=Condition))  
+  }
+  #for(i in 1:length(SPECIES)) Xsq.SexRatio[[Species.names[i]]]=SexRatio.fn(SPECIES[i])
   
-  Cond=(table(datos$Sex))
-  Cond.all=(table(datos.All$Sex))
-  
-  Cond=Cond[match(c("F","M"),names(Cond))]
-  Cond.all=Cond.all[match(c("F","M"),names(Cond.all))]
-  Condition=data.frame(Rec=Cond,Rel=Cond.all)
-  
-  #Chi-square distribution
-  Xsq <- chisq.test(as.table(as.matrix(Condition)))
-  return(list(Xsq=Xsq,ratio=Condition))  
 }
-#for(i in 1:length(SPECIES)) Xsq.SexRatio[[Species.names[i]]]=SexRatio.fn(SPECIES[i])
 
 
 # Create spatial cells  -----------------------------------------------------------
@@ -1091,7 +1137,7 @@ Tagging$Rec.name=-(ceiling(Tagging$Lat.rec)) * 100 +(floor(Tagging$Long.rec)-100
 Tagging=Tagging%>%
           filter(!CONDITION%in%c(0,4))     
 
-#Create tagging data for pop dyn model  -----------------------------------------------------------
+# Create tagging data for pop dyn model  -----------------------------------------------------------
 hndl.pop.dyn.graphs=handl_OneDrive("Analyses/Conventional tagging/Population dynamics")
 Tagging=subset(Tagging,!is.na(Long.rels))
 Tagging=subset(Tagging,!is.na(Lat.rels))
@@ -1102,9 +1148,10 @@ Tagging.pop.din=subset(Tagging, is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.t
   #select relevant species
 Pop.din.sp=c("BW","TK","GM","WH")
 Age.mat.sp=Species.Codes%>%filter(Species%in%Pop.din.sp)%>%distinct(Species,CAES_Code)
-Age.mat=LH.data%>%filter(SPECIES%in%Age.mat.sp$CAES_Code)%>%
-  distinct(SPECIES,Age_50_Mat_min,Age_50_Mat_max)%>%
-  left_join(Age.mat.sp,by=c('SPECIES'='CAES_Code'))
+Age.mat=LH.data%>%
+          filter(SPECIES%in%Age.mat.sp$CAES_Code)%>%
+          distinct(SPECIES,Age_50_Mat_min,Age_50_Mat_max)%>%
+          left_join(Age.mat.sp,by=c('SPECIES'='CAES_Code'))
 Tagging.pop.din=subset(Tagging.pop.din,Species%in%Pop.din.sp)
 
   #SA recaptured sharks reset to zone 2 following linear trajectory
@@ -1183,17 +1230,18 @@ for(g in 1:length(Gr.pars.dat.frm))
 }
 Gr.pars.dat.frm=do.call(rbind,Gr.pars.dat.frm)
 Tagging.pop.din=Tagging.pop.din%>%
-  left_join(Gr.pars.dat.frm,by=c('Species','Sex'))%>%
-  mutate(Age=(log(-(Rel_FL-Linf)/(Linf-Lzero)))/(-K),  #to-(1/K)*log(1-(Rel_FL/Linf)),
-         Age=ifelse(Age=='Inf',NA,Age),
-         Age.max=runif(n(),Max.age*0.8,Max.age),
-         Age=ifelse(Rel_FL>=Linf,Age.max,Age),
-         Age.rec=ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA),
-         Age=ifelse(Age<0,0,Age),
-         Age=ifelse(Age>Max.age,Max.age,Age),
-         Age=round(Age),
-         Age.rec=round(Age.rec))%>%
-  dplyr::select(-c(K,Linf,to,Max.age,Age.max))
+                    left_join(Gr.pars.dat.frm,by=c('Species','Sex'))%>%
+                    mutate(Age=(log(-(Rel_FL-Linf)/(Linf-Lzero)))/(-K),  #to-(1/K)*log(1-(Rel_FL/Linf)),
+                           Age=ifelse(Age=='Inf',NA,Age),
+                           Age=ifelse(Age<0,0,Age),
+                           Age.max=runif(n(),Max.age*0.8,Max.age),
+                           Age=ifelse(Rel_FL>=Linf,Age.max,Age),
+                           Age.rec=ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA),
+                           Age=ifelse(Age<0,0,Age),
+                           Age=ifelse(Age>Max.age,Max.age,Age),
+                           Age=round(Age),
+                           Age.rec=round(Age.rec))%>%
+                    dplyr::select(-c(K,Linf,to,Max.age,Age.max))
 
 #some plots
 plot.dis=FALSE
@@ -1201,6 +1249,11 @@ if(plot.dis)
 {
   #releases
   Tagging.pop.din%>%
+    mutate(dummy=1)%>%
+    group_by(Species)%>%
+    mutate(N=sum(dummy))%>%
+    ungroup()%>%
+    mutate(Species=paste0(Species," (n=",N,")"))%>%
     ggplot(aes(Long.rels,Lat.rels,color=Rel.zone))+
     geom_point()+
     facet_wrap(~Species)+ggtitle('Releases')
@@ -1208,6 +1261,12 @@ if(plot.dis)
   
   #recaptures
   Tagging.pop.din%>%
+    filter(!is.na(Long.rec))%>%
+    mutate(dummy=1)%>%
+    group_by(Species)%>%
+    mutate(N=sum(dummy))%>%
+    ungroup()%>%
+    mutate(Species=paste0(Species," (n=",N,")"))%>%
     ggplot(aes(Long.rec,Lat.rec,color=Rec.zone))+
     geom_point()+
     facet_wrap(~Species)+ggtitle('Recaptures')
@@ -1292,7 +1351,8 @@ if(plot.dis)
 }
 
 
-#Create Tag groups (i.e. same released age class year and zone. Use as SS3 input)  
+#Create Tag groups (i.e. same released sex-age-year-zone. Use as SS3 input)  
+  #Generic format
 fn.group=function(DAT,BySex)
 {
   names(DAT)[match(c("Rel.name","Rec.name"),names(DAT))]=c("Block.rel","Block.rec")
@@ -1364,8 +1424,44 @@ for(i in 1:length(Store.group))
                             BySex="NO")
 }
 
-#Deje aca
-# Export Data for Movement modelling in population dynamics------------------------------------------------------------------
+  #SS format
+fn.group.SS=function(DAT,BySex)
+{
+  DAT=DAT%>%
+    mutate(Number=1,
+           Sex=ifelse(Sex=="U","F",Sex),
+           Tag.group=paste(Rel.zone,Mn.rel,Yr.rel,Sex,Age))
+  DAT=DAT%>%
+    left_join(DAT%>%
+                distinct(Tag.group)%>%
+                mutate(id = row_number()),
+              by='Tag.group')%>%
+    dplyr::select(-Tag.group)%>%
+    rename(Tag.group=id)
+  
+  
+  out.rel=DAT%>%
+    group_by(Tag.group,Rel.zone,Mn.rel,Yr.rel,Sex,Age)%>%
+    summarise(N.release=sum(Number))%>%
+    ungroup()%>%
+    mutate(t.fill=999)%>%
+    relocate(Tag.group,Rel.zone,Yr.rel,Mn.rel,t.fill,Sex,Age,N.release)
+  
+  out.rec=DAT%>%
+    filter(!is.na(Yr.rec))%>%
+    group_by(Tag.group,Rec.zone,Mn.rec,Yr.rec)%>%
+    summarise(N.recapture=sum(Number))%>%
+    relocate(Tag.group,Yr.rec,Mn.rec,Rec.zone,N.recapture)
+  
+  return(list(releases=out.rel,recaptures=out.rec))
+}
+Store.group.SS=Store.group
+for(i in 1:length(Store.group.SS))
+{
+  Store.group.SS[[i]]=fn.group.SS(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)))
+}
+
+# Export tagging data for pop dyn model------------------------------------------------------------------
 
   #individual based model
 setwd(handl_OneDrive("Analyses/Data_outs"))
@@ -1391,7 +1487,21 @@ for(i in 1:length(Pop.din.sp))
 }
 
   #population based model (movement matrix)
-    #a) Tag groups by age
+    #a) SS format Tag groups by age
+for(i in 1:length(Store.group.SS))
+{
+  a=Store.group.SS[[i]]
+  NmS=ifelse(names(Store.group)[i]=="BW",'Dusky shark',
+       ifelse(names(Store.group)[i]=='WH','Whiskery shark',
+       ifelse(names(Store.group)[i]=='GM','Gummy shark',
+       ifelse(names(Store.group)[i]=='TK','Sandbar shark',NA))))
+  
+  for(p in 1:length(a))
+  {
+    write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_SS.format_",names(a)[p],".csv")),row.names=F) 
+  }
+}
+    #b) Generic Tag groups by age
 for(i in 1:length(Store.group))
 {
   a=Store.group[[i]]
@@ -1404,9 +1514,9 @@ for(i in 1:length(Store.group))
     write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_",names(a)[p],".csv")),row.names=F) 
   }
 }
-    #b) Tag groups by size class
+    #c) Tag groups by size class
 #note: two size groups, one from smallest tagged to size at maturity, the other for >size at maturity
-#create the data
+        #c.1. create the data
 for(i in 1:length(Store.group.size))
 {
   DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL))  
@@ -1438,7 +1548,7 @@ for(i in 1:length(Store.group.size))
                              Zn.rec=Zn.rec,Zn.rec.adul=Zn.rec.adul,Zn.rec.juv=Zn.rec.juv,
                              Smallest.size=Smallest.size)
 }
-#export
+        #c.2. export
 for(i in 1:length(Store.group.size))
 {
   a=Store.group.size[[i]]
@@ -1452,7 +1562,6 @@ for(i in 1:length(Store.group.size))
 
 
 # Analysis of recapture data only for paper-----------------------------------------
-do.paper=FALSE
 if(do.paper)
 {
   setwd(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs"))
