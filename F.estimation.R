@@ -69,6 +69,19 @@ assumed.tag.non.reporting=rbind(assumed.tag.non.reporting,
                         mutate(Species=c(rep('WH',nn),rep('GM',nn)))
 tag.non.reporting=rbind(tag.non.reporting,assumed.tag.non.reporting)  
 
+#export reporting and shedding
+Dis.Sp=c("BW","TK","WH","GM")
+names(Dis.Sp)=c('Dusky shark','Sandbar shark','Whiskery shark','Gummy shark')
+hndl.dat.out="C:/Users/myb/OneDrive - Department of Primary Industries and Regional Development/Matias/Analyses/Data_outs"
+for(i in 1:length(Dis.Sp))
+{
+  a=tag.non.reporting%>%filter(Species==Dis.Sp[i])
+  NmS=names(Dis.Sp)[i]
+  write.csv(a,paste0(hndl.dat.out,'/',NmS,'/',paste0(NmS,"_","Con_tag_non_reporting_from_F.estimation.R_.csv")),row.names=F)
+  write.csv(tag.shedding,paste0(hndl.dat.out,'/',NmS,'/',paste0(NmS,"_","Con_tag_shedding_from_F.estimation.R_.csv")),row.names = F)
+}
+
+
 
 #released years used in analysis
 used.released.years=tag.non.reporting%>%

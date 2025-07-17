@@ -1144,7 +1144,7 @@ Tagging=subset(Tagging,!is.na(Lat.rels))
 
   #remove nonsense records                                                   
 Tagging.pop.din=subset(Tagging, is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold)
-
+Tagging.pop.din=Tagging.pop.din%>%filter(Yr.rel>=1993)
   #select relevant species
 Pop.din.sp=c("BW","TK","GM","WH")
 Age.mat.sp=Species.Codes%>%filter(Species%in%Pop.din.sp)%>%distinct(Species,CAES_Code)
@@ -1347,6 +1347,24 @@ if(plot.dis)
     geom_vline(aes(xintercept = Age_50_Mat_min), colour="black",size=1.25,alpha=.5)+
     geom_vline(aes(xintercept = Age_50_Mat_max), colour="black",size=1.25,alpha=.5) 
   ggsave(paste0(hndl.pop.dyn.graphs,'/age at release histogram.tiff'),width=6,height=6, dpi=300,compression = "lzw")
+  
+  
+  #explore if multiple tagging events per year
+  colfunc <- colorRampPalette(c("chocolate4", "cyan2"))
+  kol.grad=colfunc(12)
+  names(kol.grad)=1:12
+  Tagging.pop.din%>%
+    mutate(Number=1)%>%
+    group_by(Species,Rel.zone,Mn.rel,Yr.rel)%>%
+    summarise(N=sum(Number))%>%
+    ungroup()%>%
+    mutate(Mn.rel=factor(Mn.rel,levels=1:12))%>%
+    ggplot(aes(Yr.rel,N,color=Mn.rel))+
+    geom_point()+
+    facet_grid(Species~Rel.zone,scales='free')+
+    scale_colour_manual(values=kol.grad)+theme(legend.position = 'top')+
+    guides(colour = guide_legend(nrow = 1))
+  ggsave(paste0(hndl.pop.dyn.graphs,'/Check rel months within year.tiff'),width=8,height=7, dpi=300,compression = "lzw")
   
 }
 
