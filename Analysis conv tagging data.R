@@ -1205,6 +1205,11 @@ Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.
                       ifelse(Lat.rec>(-26) & Long.rec>=114 & Long.rec<123.75,"North",
                       ifelse(Lat.rec>(-26) & Long.rec>=123.75,"Joint",NA))))))))
 
+#only use fin tags & records from commercial gillnets
+Tagging.pop.din=Tagging.pop.din%>%
+  filter(is.na(DARTTAGNO))%>% 
+  filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
+ 
 
 #Calculate age from length
 #note: used the inverse of Von B because there is not enough info to create age-length key for any species
