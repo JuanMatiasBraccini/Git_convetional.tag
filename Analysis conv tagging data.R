@@ -46,6 +46,7 @@ library(NISTunits)
 library(fields)
 library(ggridges)
 library(mgcv)
+library(ggpubr)
 
 #memory.limit(3900)   #set memory limit to maximum size
 
@@ -1139,20 +1140,25 @@ Tagging=Tagging%>%
 
 # Create tagging data for pop dyn model  -----------------------------------------------------------
 hndl.pop.dyn.graphs=handl_OneDrive("Analyses/Conventional tagging/Population dynamics")
-Tagging=subset(Tagging,!is.na(Long.rels))
-Tagging=subset(Tagging,!is.na(Lat.rels))
 
-  #remove nonsense records                                                   
-Tagging.pop.din=subset(Tagging, is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold)
-Tagging.pop.din=Tagging.pop.din%>%filter(Yr.rel>=1993)
+  #remove nonsense records and select minium days at large                                                  
+Tagging.pop.din=Tagging%>%
+                  filter(!is.na(Long.rels))%>%
+                  filter(!is.na(Lat.rels))%>%
+                  filter(is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold)%>%
+                  filter(Yr.rel>=1993)
+
   #select relevant species
 Pop.din.sp=c("BW","TK","GM","WH")
-Age.mat.sp=Species.Codes%>%filter(Species%in%Pop.din.sp)%>%distinct(Species,CAES_Code)
+Tagging.pop.din=Tagging.pop.din%>%
+                  filter(Species%in%Pop.din.sp)
+Age.mat.sp=Species.Codes%>%
+              filter(Species%in%Pop.din.sp)%>%
+              distinct(Species,CAES_Code)
 Age.mat=LH.data%>%
           filter(SPECIES%in%Age.mat.sp$CAES_Code)%>%
           distinct(SPECIES,Age_50_Mat_min,Age_50_Mat_max)%>%
           left_join(Age.mat.sp,by=c('SPECIES'='CAES_Code'))
-Tagging.pop.din=subset(Tagging.pop.din,Species%in%Pop.din.sp)
 
   #SA recaptured sharks reset to zone 2 following linear trajectory
 SA.rels=subset(Tagging.pop.din,Long.rels>129)
@@ -1205,9 +1211,9 @@ Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.
                       ifelse(Lat.rec>(-26) & Long.rec>=114 & Long.rec<123.75,"North",
                       ifelse(Lat.rec>(-26) & Long.rec>=123.75,"Joint",NA))))))))
 
-#only use fin tags & records from commercial gillnets
+  #Select records for only fintags recaptured by commercial gillnets
 Tagging.pop.din=Tagging.pop.din%>%
-  filter(is.na(DARTTAGNO))%>% 
+  filter(Tag.type=='conventional')%>% 
   filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
  
 
@@ -1247,131 +1253,6 @@ Tagging.pop.din=Tagging.pop.din%>%
                            Age=round(Age),
                            Age.rec=round(Age.rec))%>%
                     dplyr::select(-c(K,Linf,to,Max.age,Age.max))
-
-#some plots
-plot.dis=FALSE
-if(plot.dis)
-{
-  #releases
-  Tagging.pop.din%>%
-    mutate(dummy=1)%>%
-    group_by(Species)%>%
-    mutate(N=sum(dummy))%>%
-    ungroup()%>%
-    mutate(Species=paste0(Species," (n=",N,")"))%>%
-    ggplot(aes(Long.rels,Lat.rels,color=Rel.zone))+
-    geom_point()+
-    facet_wrap(~Species)+ggtitle('Releases')
-  ggsave(paste0(hndl.pop.dyn.graphs,'/releases.tiff'),width=6,height=6, dpi=300,compression = "lzw")
-  
-  #recaptures
-  Tagging.pop.din%>%
-    filter(!is.na(Long.rec))%>%
-    mutate(dummy=1)%>%
-    group_by(Species)%>%
-    mutate(N=sum(dummy))%>%
-    ungroup()%>%
-    mutate(Species=paste0(Species," (n=",N,")"))%>%
-    ggplot(aes(Long.rec,Lat.rec,color=Rec.zone))+
-    geom_point()+
-    facet_wrap(~Species)+ggtitle('Recaptures')
-  ggsave(paste0(hndl.pop.dyn.graphs,'/recaptures.tiff'),width=6,height=6, dpi=300,compression = "lzw")
-  
-  #Vector analysis to visualize movement differences among sexes and size for each species
-  SIZE=c(240,130,110,110)
-  for (i in 1:length(Pop.din.sp))
-  {
-    Size=SIZE[i]
-    a=subset(Tagging.pop.din,Species==Pop.din.sp[i])
-    X=range(c(a$Long.rels,a$Long.rec),na.rm=T)
-    Y=range(c(a$Lat.rels,a$Lat.rec),na.rm=T)
-    if(i==3) Y=range(c(a$Lat.rec,min(a$Lat.rels)),na.rm=T)
-    
-    fem=subset(a,Sex=="F")
-    mal=subset(a,Sex=="M")
-    YR.rec=sort(unique(a$Yr.rec))
-    
-    tiff(file=paste0(paste0(hndl.pop.dyn.graphs,'/arrows_overall_'),Pop.din.sp[i],".tiff"),
-         width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
-    
-    par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
-    #plot(X,Y,col="transparent",main=paste("Female",Pop.din.sp[i],"all years"))
-    plot(X,Y,col="transparent",main="Female",ylab="Lat",xlab="Long")
-    arrows(fem$Long.rels,fem$Lat.rels,fem$Long.rec,fem$Lat.rec,col="pink",lwd=1.5)
-    plot(X,Y,col="transparent",main="Male",ylab="Lat",xlab="Long")
-    #plot(X,Y,col="transparent",main=paste("Male",Pop.din.sp[i],"all years"))
-    arrows(mal$Long.rels,mal$Lat.rels,mal$Long.rec,mal$Lat.rec,col="blue",lwd=1.5)
-    
-    
-    b=subset(a,Rel_FL<Size)
-    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
-    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="red",lwd=1.5)
-    
-    b=subset(a,Rel_FL>Size)
-    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
-    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="darkgreen",lwd=1.5)  
-    dev.off()
-  }
-  colfunc <- colorRampPalette(c("cadetblue2", "darkblue"))
-  for (i in 1:length(Pop.din.sp))
-  {
-    x=Tagging.pop.din%>%
-      filter(Species==Pop.din.sp[i] & Recaptured=='Yes' & !is.na(Age)& !is.na(Age.rec) & !Age.rec=='')
-    Nkols=1
-    if(length(unique(x$Age))>5) Nkols=3
-    if(length(unique(x$Age))>10) Nkols=4
-    x=x%>%
-      mutate(Age.rec=as.factor(Age.rec))
-    cols=colfunc(length(levels(x$Age.rec)))
-    names(cols)=levels(x$Age.rec)
-    x%>%
-      ggplot(aes(color=Age.rec))+
-      geom_segment(aes(x = Long.rels, y = Lat.rels, xend = Long.rec, yend = Lat.rec),
-                   arrow = arrow(length = unit(0.15, "cm")))+
-      facet_wrap(~Age,ncol = Nkols)+ 
-      scale_colour_manual(values = cols)+ylab("Latitude")+xlab("Longitude")+
-      theme(legend.position = 'top',legend.text = element_text(size=6))+guides(color=guide_legend(nrow=2,byrow=TRUE))
-    ggsave(paste0(paste0(hndl.pop.dyn.graphs,'/arrows_by age_'),Pop.din.sp[i],".tiff"),
-           width=6,height=6, dpi=300,compression = "lzw")
-  }
-
-  
-  #age and length
-  Tagging.pop.din%>%
-    ggplot(aes(Age,Rel_FL,color=Sex))+
-    geom_point()+
-    facet_wrap(~Species,scales='free')
-  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release vs length.tiff'),width=6,height=6, dpi=300,compression = "lzw")
-  
-  #age histogram
-  Tagging.pop.din%>%
-    left_join(Age.mat,by="Species")%>%
-    ggplot(aes(Age,fill=Sex))+
-    geom_histogram(positio='dodge')+
-    facet_wrap(~Species,scales='free')+
-    geom_vline(aes(xintercept = Age_50_Mat_min), colour="black",size=1.25,alpha=.5)+
-    geom_vline(aes(xintercept = Age_50_Mat_max), colour="black",size=1.25,alpha=.5) 
-  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release histogram.tiff'),width=6,height=6, dpi=300,compression = "lzw")
-  
-  
-  #explore if multiple tagging events per year
-  colfunc <- colorRampPalette(c("chocolate4", "cyan2"))
-  kol.grad=colfunc(12)
-  names(kol.grad)=1:12
-  Tagging.pop.din%>%
-    mutate(Number=1)%>%
-    group_by(Species,Rel.zone,Mn.rel,Yr.rel)%>%
-    summarise(N=sum(Number))%>%
-    ungroup()%>%
-    mutate(Mn.rel=factor(Mn.rel,levels=1:12))%>%
-    ggplot(aes(Yr.rel,N,color=Mn.rel))+
-    geom_point()+
-    facet_grid(Species~Rel.zone,scales='free')+
-    scale_colour_manual(values=kol.grad)+theme(legend.position = 'top')+
-    guides(colour = guide_legend(nrow = 1))
-  ggsave(paste0(hndl.pop.dyn.graphs,'/Check rel months within year.tiff'),width=8,height=7, dpi=300,compression = "lzw")
-  
-}
 
 
 #Create Tag groups (i.e. same released sex-age-year-zone. Use as SS3 input)  
@@ -1484,6 +1365,169 @@ for(i in 1:length(Store.group.SS))
   Store.group.SS[[i]]=fn.group.SS(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)))
 }
 
+
+#some plots
+plot.dis=FALSE
+if(plot.dis)
+{
+  #releases & recaptures locations
+  for (i in 1:length(Pop.din.sp))
+  {
+    x=Tagging.pop.din%>%
+      filter(Species==Pop.din.sp[i])
+    Xlim=range(c(x$Long.rels,x$Long.rec),na.rm=T)
+    Ylim=range(c(x$Lat.rels,x$Lat.rec),na.rm=T)
+    
+    #releases
+    p1=x%>%
+      mutate(dummy=1)%>%
+      group_by(Species)%>%
+      mutate(N=sum(dummy))%>%
+      ungroup()%>%
+      mutate(Species=paste0(Species," (n=",N,")"))%>%
+      ggplot(aes(Long.rels,Lat.rels,color=Rel.zone))+
+      geom_point()+
+      xlim(Xlim)+ylim(Ylim)+theme(legend.position = 'top')
+    
+    #recaptures
+    p2=x%>%
+      filter(!is.na(Long.rec))%>%
+      mutate(dummy=1)%>%
+      group_by(Species)%>%
+      mutate(N=sum(dummy))%>%
+      ungroup()%>%
+      mutate(Species=paste0(Species," (n=",N,")"))%>%
+      ggplot(aes(Long.rec,Lat.rec,color=Rec.zone))+
+      geom_point()+
+      xlim(Xlim)+ylim(Ylim)+theme(legend.position = 'top')
+    
+    ggarrange(plotlist = list(p1,p2),ncol=1)
+    ggsave(paste0(hndl.pop.dyn.graphs,'/',unique(x$COMMON_NAME),'_rels & recs.tiff'),width=4,height=6, dpi=300,compression = "lzw")
+  }
+  
+  #releases & recaptures positions
+  for (i in 1:length(Pop.din.sp))
+  {
+    Xlim=c(min(x$Yr.rel,na.rm=T),max(x$Yr.rec,na.rm=T))
+    x=Tagging.pop.din%>%
+      filter(Species==Pop.din.sp[i])
+    p1=Store.group.SS[[i]]$releases%>%
+      ungroup()%>%
+      group_by(Rel.zone,Yr.rel)%>%
+      summarise(N=sum(N.release))%>%
+      ggplot(aes(Yr.rel,N,color=Rel.zone))+
+      geom_point(size=2)+xlim(Xlim)+
+      geom_line()+theme(legend.position = 'top')
+    p2=Store.group.SS[[i]]$recaptures%>%
+      ungroup()%>%
+      group_by(Rec.zone,Yr.rec)%>%
+      summarise(N=sum(N.recapture))%>%
+      ggplot(aes(Yr.rec,N,color=Rec.zone))+
+      geom_point(size=2)+xlim(Xlim)+
+      geom_line()+theme(legend.position = 'top')
+    
+    ggarrange(plotlist = list(p1,p2),ncol=1)
+    ggsave(paste0(hndl.pop.dyn.graphs,'/',unique(x$COMMON_NAME),'_rels & recs_numbers.tiff'),width=4,height=6, dpi=300,compression = "lzw")
+    
+  }
+  
+  
+  #Vector analysis to visualize movement differences among sexes and size for each species
+  SIZE=c(240,130,110,110)
+  names(SIZE)=Pop.din.sp
+  for (i in 1:length(Pop.din.sp))
+  {
+    Size=SIZE[i]
+    a=subset(Tagging.pop.din,Species==Pop.din.sp[i])
+    X=range(c(a$Long.rels,a$Long.rec),na.rm=T)
+    Y=range(c(a$Lat.rels,a$Lat.rec),na.rm=T)
+    if(i==3) Y=range(c(a$Lat.rec,min(a$Lat.rels)),na.rm=T)
+    
+    fem=subset(a,Sex=="F")
+    mal=subset(a,Sex=="M")
+    YR.rec=sort(unique(a$Yr.rec))
+    
+    tiff(file=paste0(paste0(hndl.pop.dyn.graphs,'/arrows_overall_'),Pop.din.sp[i],".tiff"),
+         width = 2400, height = 2400,units = "px", res = 300,compression = "lzw")
+    
+    par(mfcol=c(2,2),las=1,cex.axis=1.25,cex.lab=1.5,cex.main=2)
+    #plot(X,Y,col="transparent",main=paste("Female",Pop.din.sp[i],"all years"))
+    plot(X,Y,col="transparent",main="Female",ylab="Lat",xlab="Long")
+    arrows(fem$Long.rels,fem$Lat.rels,fem$Long.rec,fem$Lat.rec,col="pink",lwd=1.5)
+    plot(X,Y,col="transparent",main="Male",ylab="Lat",xlab="Long")
+    #plot(X,Y,col="transparent",main=paste("Male",Pop.din.sp[i],"all years"))
+    arrows(mal$Long.rels,mal$Lat.rels,mal$Long.rec,mal$Lat.rec,col="blue",lwd=1.5)
+    
+    
+    b=subset(a,Rel_FL<Size)
+    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
+    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="red",lwd=1.5)
+    
+    b=subset(a,Rel_FL>Size)
+    plot(X,Y,col="transparent",main=paste("Size >",Size, "cm"),ylab="Lat",xlab="Long")
+    arrows(b$Long.rels,b$Lat.rels,b$Long.rec,b$Lat.rec,col="darkgreen",lwd=1.5)  
+    dev.off()
+  }
+  colfunc <- colorRampPalette(c("cadetblue2", "darkblue"))
+  for (i in 1:length(Pop.din.sp))
+  {
+    x=Tagging.pop.din%>%
+      filter(Species==Pop.din.sp[i] & Recaptured=='Yes' & !is.na(Age)& !is.na(Age.rec) & !Age.rec=='')
+    Nkols=1
+    if(length(unique(x$Age))>5) Nkols=3
+    if(length(unique(x$Age))>10) Nkols=4
+    x=x%>%
+      mutate(Age.rec=as.factor(Age.rec))
+    cols=colfunc(length(levels(x$Age.rec)))
+    names(cols)=levels(x$Age.rec)
+    x%>%
+      ggplot(aes(color=Age.rec))+
+      geom_segment(aes(x = Long.rels, y = Lat.rels, xend = Long.rec, yend = Lat.rec),
+                   arrow = arrow(length = unit(0.15, "cm")))+
+      facet_wrap(~Age,ncol = Nkols)+ 
+      scale_colour_manual(values = cols)+ylab("Latitude")+xlab("Longitude")+
+      theme(legend.position = 'top',legend.text = element_text(size=6))+guides(color=guide_legend(nrow=2,byrow=TRUE))
+    ggsave(paste0(paste0(hndl.pop.dyn.graphs,'/arrows_by age_'),Pop.din.sp[i],".tiff"),
+           width=6,height=6, dpi=300,compression = "lzw")
+  }
+  
+  
+  #age and length
+  Tagging.pop.din%>%
+    ggplot(aes(Age,Rel_FL,color=Sex))+
+    geom_point()+
+    facet_wrap(~Species,scales='free')
+  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release vs length.tiff'),width=6,height=6, dpi=300,compression = "lzw")
+  
+  #age histogram
+  Tagging.pop.din%>%
+    left_join(Age.mat,by="Species")%>%
+    ggplot(aes(Age,fill=Sex))+
+    geom_histogram(positio='dodge')+
+    facet_wrap(~Species,scales='free')+
+    geom_vline(aes(xintercept = Age_50_Mat_min), colour="black",size=1.25,alpha=.5)+
+    geom_vline(aes(xintercept = Age_50_Mat_max), colour="black",size=1.25,alpha=.5) 
+  ggsave(paste0(hndl.pop.dyn.graphs,'/age at release histogram.tiff'),width=6,height=6, dpi=300,compression = "lzw")
+  
+  
+  #explore if multiple tagging events per year
+  colfunc <- colorRampPalette(c("chocolate4", "cyan2"))
+  kol.grad=colfunc(12)
+  names(kol.grad)=1:12
+  Tagging.pop.din%>%
+    mutate(Number=1)%>%
+    group_by(Species,Rel.zone,Mn.rel,Yr.rel)%>%
+    summarise(N=sum(Number))%>%
+    ungroup()%>%
+    mutate(Mn.rel=factor(Mn.rel,levels=1:12))%>%
+    ggplot(aes(Yr.rel,N,color=Mn.rel))+
+    geom_point()+
+    facet_grid(Species~Rel.zone,scales='free')+
+    scale_colour_manual(values=kol.grad)+theme(legend.position = 'top')+
+    guides(colour = guide_legend(nrow = 1))
+  ggsave(paste0(hndl.pop.dyn.graphs,'/Check rel months within year.tiff'),width=8,height=7, dpi=300,compression = "lzw")
+  
+}
 # Export tagging data for pop dyn model------------------------------------------------------------------
 
   #individual based model
