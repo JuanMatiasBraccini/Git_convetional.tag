@@ -1760,14 +1760,17 @@ fn.group.SS=function(DAT,BySex)
     group_by(Tag.group,Rel.zone,Yr.rel,Sex,Age)%>%
     summarise(N.release=sum(Number))%>%
     ungroup()%>%
-    mutate(t.fill=999)%>%
-    relocate(Tag.group,Rel.zone,Yr.rel,t.fill,Sex,Age,N.release)
+    mutate(season=1,
+           t.fill=999)%>%
+    relocate(Tag.group,Rel.zone,Yr.rel,season,t.fill,Sex,Age,N.release)
   
   out.rec=DAT%>%
     filter(!is.na(Yr.rec))%>%
     group_by(Tag.group,Rec.zone,Yr.rec)%>%
     summarise(N.recapture=sum(Number))%>%
-    relocate(Tag.group,Yr.rec,Rec.zone,N.recapture)
+    ungroup()%>%
+    mutate(season=1)%>%
+    relocate(Tag.group,Yr.rec,season,Rec.zone,N.recapture)
   
   return(list(releases=out.rel,recaptures=out.rec))
 }
