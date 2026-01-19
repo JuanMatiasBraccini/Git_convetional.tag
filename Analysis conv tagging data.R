@@ -83,6 +83,8 @@ do.paper=FALSE
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
 min.N.rec.Pop.modl=10       #minimum number of recaptures for a species to be considered for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
+Selected.rel.methods_SS=c('Commercial gillnet') #only releases and recaptures from these fleets  
+#Selected.rel.methods_SS=c('Commercial gillnet','Research longline')
 
 ind.sp.vec=c(18007,18003,17001,17003) 
 names(ind.sp.vec)=c('sandbar','dusky','gummy','whiskery')
@@ -1355,11 +1357,10 @@ Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.
   #Select records for only conventional rototags recaptured by commercial gillnets
 Tabl.rel.recs=table(Tagging.pop.din$Rec.method,Tagging.pop.din$Rel.method,useNA = 'ifany')
 
-#note: most releases from commercial gillnet and recaptured by commercial gillnet
 Tagging.pop.din=Tagging.pop.din%>%
-  filter(Tag.type=='conventional')%>% 
-  filter(Rel.method=='Commercial gillnet')%>%
-  filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
+                  filter(Tag.type=='conventional')%>% 
+                  filter(Rel.method%in%Selected.rel.methods_SS)%>%
+                  filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
  
 #Replace NA Rel_FL with average of individuals of same species caught that day
 Tagging.pop.din=Tagging.pop.din%>%
@@ -1415,13 +1416,15 @@ Tagging.pop.din=Tagging.pop.din%>%
 Tagging.pop.din=Tagging.pop.din%>%
                     dplyr::select(-c(K,Linf,to,Age.max))
 
-#Set Rec zone to Rel zone if recaptured by no recapture position
+#Set Rec zone to Rel zone if recaptured but no recapture position information
 Tagging.pop.din=Tagging.pop.din%>%
   mutate(Rec.zone=ifelse(is.na(Rec.zone) & Recaptured=='Yes',Rel.zone,Rec.zone))
 
 #Select only TDGDLF records
+if("Research longline"%in%Selected.rel.methods_SS)  selected.zones=c('Closed','North','West','Zone1','Zone2')
+if(!"Research longline"%in%Selected.rel.methods_SS)  selected.zones=c('West','Zone1','Zone2')
 Tagging.pop.din=Tagging.pop.din%>%
-  filter(Rel.zone%in%c('West','Zone1','Zone2'))
+          filter(Rel.zone%in%selected.zones)
 
 
 #Create Tag groups (i.e. same released sex-age-year-zone. Use as SS3 input)  
@@ -1529,7 +1532,8 @@ fn.group.SS=function(DAT,BySex)
   
   return(list(releases=out.rel,recaptures=out.rec))
 }
-Store.group.SS=Store.group
+Store.group.SS=vector('list',length(Pop.din.sp))
+names(Store.group.SS)=Pop.din.sp
 for(i in 1:length(Store.group.SS))
 {
   Store.group.SS[[i]]=fn.group.SS(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)))
