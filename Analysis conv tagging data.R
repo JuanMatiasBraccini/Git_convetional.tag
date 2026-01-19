@@ -1596,7 +1596,7 @@ if(plot.dis)
   }
   
   
-  #Predicted age @ length  ACA plot total length!!!!
+  #Predicted age @ length  
   Tagging.pop.din%>%
     left_join(LH.data%>%
                 filter(SPECIES%in%unique(Tagging.pop.din$CAAB_code))%>%
@@ -1642,6 +1642,14 @@ if(plot.dis)
   ggsave(paste0(hndl.pop.dyn.graphs,'/Check rel months within year.tiff'),width=8,height=7, dpi=300,compression = "lzw")
   
 }
+
+
+write.csv(Tagging.pop.din%>%
+            group_by(Yr.rel,COMMON_NAME,Rel.method)%>%
+            tally()%>%
+            spread(COMMON_NAME,n),
+          paste(hndl.pop.dyn.graphs,'Table.releases by year and method.csv',sep='/'),row.names = F)
+
 
 #Create Tag groups (i.e. same released sex-age-year-zone. Use as SS3 input)  
   #Generic format
@@ -1719,31 +1727,47 @@ for(i in 1:length(Store.group))
   #SS format
 fn.group.SS=function(DAT,BySex)
 {
+  #Calculate financial year
+  DAT=DAT%>%
+        mutate(finyear=ifelse(Mn.rel>6,paste(Yr.rel,substr(Yr.rel+1,3,4),sep='-'),
+                              paste(Yr.rel-1,substr(Yr.rel,3,4),sep='-')),
+               finyear=as.numeric(substr(finyear,1,4)))%>% 
+        dplyr::select(-Yr.rel)%>%
+        rename(Yr.rel=finyear)%>%
+        mutate(finyear=ifelse(Mn.rec>6,paste(Yr.rec,substr(Yr.rec+1,3,4),sep='-'),
+                          paste(Yr.rec-1,substr(Yr.rec,3,4),sep='-')),
+                finyear=as.numeric(substr(finyear,1,4)))%>% 
+        dplyr::select(-Yr.rec)%>%
+        rename(Yr.rec=finyear)
+  
+  #set unknown sex to F
   DAT=DAT%>%
     mutate(Number=1,
            Sex=ifelse(Sex=="U","F",Sex),
-           Tag.group=paste(Rel.zone,Mn.rel,Yr.rel,Sex,Age))
+           Tag.group=paste(Rel.zone,Yr.rel,Sex,Age))
+  
+  #add Tag group
   DAT=DAT%>%
-    left_join(DAT%>%
-                distinct(Tag.group)%>%
-                mutate(id = row_number()),
-              by='Tag.group')%>%
-    dplyr::select(-Tag.group)%>%
-    rename(Tag.group=id)
+        left_join(DAT%>%
+                    distinct(Tag.group)%>%
+                    mutate(id = row_number()),
+                  by='Tag.group')%>%
+        dplyr::select(-Tag.group)%>%
+        rename(Tag.group=id)
   
-  
+  #Calculate numbers released and recaptured by tag group
   out.rel=DAT%>%
-    group_by(Tag.group,Rel.zone,Mn.rel,Yr.rel,Sex,Age)%>%
+    group_by(Tag.group,Rel.zone,Yr.rel,Sex,Age)%>%
     summarise(N.release=sum(Number))%>%
     ungroup()%>%
     mutate(t.fill=999)%>%
-    relocate(Tag.group,Rel.zone,Yr.rel,Mn.rel,t.fill,Sex,Age,N.release)
+    relocate(Tag.group,Rel.zone,Yr.rel,t.fill,Sex,Age,N.release)
   
   out.rec=DAT%>%
     filter(!is.na(Yr.rec))%>%
-    group_by(Tag.group,Rec.zone,Mn.rec,Yr.rec)%>%
+    group_by(Tag.group,Rec.zone,Yr.rec)%>%
     summarise(N.recapture=sum(Number))%>%
-    relocate(Tag.group,Yr.rec,Mn.rec,Rec.zone,N.recapture)
+    relocate(Tag.group,Yr.rec,Rec.zone,N.recapture)
   
   return(list(releases=out.rel,recaptures=out.rec))
 }
