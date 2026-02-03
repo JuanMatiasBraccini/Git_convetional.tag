@@ -81,7 +81,7 @@ LH.data=read.csv(handl_OneDrive('Data/Life history parameters/Life_History.csv')
 # PARAMETERS SECTION ############
 do.paper=FALSE
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
-min.N.rec.Pop.modl=10       #minimum number of recaptures for a species to be considered for population dynamics
+min.N.rec.Pop.modl=50       #minimum number of recaptures for a species to be considered for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
 Selected.rel.methods_SS=c('Commercial gillnet') #only releases and recaptures from these fleets  
 #Selected.rel.methods_SS=c('Commercial gillnet','Research longline')
@@ -1453,7 +1453,8 @@ for(g in 1:length(Gr.pars.dat.frm))
   
   Gr.pars.dat.frm[[g]]=dd1
 }
-Gr.pars.dat.frm=do.call(rbind,Gr.pars.dat.frm)
+Gr.pars.dat.frm=do.call(rbind,Gr.pars.dat.frm)%>%
+                  filter(Species%in%unique(Tagging.pop.din$Species))
 Tagging.pop.din=Tagging.pop.din%>% 
                     left_join(Gr.pars.dat.frm,by=c('Species','Sex'))
 
