@@ -77,6 +77,15 @@ Bathymetry=rbind(Bathymetry_120,Bathymetry_138)
 
 LH.data=read.csv(handl_OneDrive('Data/Life history parameters/Life_History.csv'))
 
+#Catch data
+library(data.table)
+Data.monthly <- fread(handl_OneDrive("Analyses/Data_outs/Data.monthly.csv"))%>%
+  dplyr::select(FINYEAR,METHOD,VESSEL,SPECIES,SNAME,LIVEWT.c,LAT,LONG,zone,FisheryCode)%>%
+  mutate(VESSEL=tolower(VESSEL),
+         VESSEL=gsub(" ", "",VESSEL))%>%
+  data.frame()
+#detach("package:data.table", unload = TRUE)
+
 
 # PARAMETERS SECTION ############
 do.paper=FALSE
@@ -1413,12 +1422,60 @@ if(plot.dis)
   grDevices::dev.off()
   
 }
-
 Tagging.pop.din=Tagging.pop.din%>%
                   filter(Tag.type=='conventional')%>% 
                   filter(Rel.method%in%Selected.rel.methods_SS)%>%
                   filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
  
+#Calculate TDGDLF annual reporting rate by zone and species (based on McAuley et al 2007) #ACA
+Rep.rate.sp=sort(unique(Tagging.pop.din$Species))
+names(Rep.rate.sp)=c("Dusky shark","Gummy shark","Sandbar shark","Whiskery shark")
+Non.Rep.rate=vector('list',length(Rep.rate.sp))
+names(Non.Rep.rate)=Rep.rate.sp
+Rep.rate.sp.ktch=c(18003,17001,18007,17003)
+names(Rep.rate.sp.ktch)=Rep.rate.sp
+Rep.rate.sp=subset(Rep.rate.sp,!Rep.rate.sp=='GM')  #no CAPTVESS info for Terry's data
+Rep.rate.sp.ktch=subset(Rep.rate.sp.ktch,!Rep.rate.sp.ktch==17001)
+Non.Rep.rate=Non.Rep.rate[-match('GM',names(Non.Rep.rate))]
+for(i in 1:length(Non.Rep.rate))
+{
+  d=Tagging.pop.din%>%
+    filter(Species==Rep.rate.sp[i] & Recaptured=='Yes')%>%    
+    filter(!CAPTVESS%in%tolower(Res.ves))%>%
+    filter(Rec.method=='Commercial gillnet')
+  Most.common.zone=d%>%
+    group_by(CAPTVESS,Rec.zone)%>%
+    tally()%>%ungroup()%>%
+    filter(!is.na(Rec.zone))%>%
+    group_by(CAPTVESS)%>%
+    filter(n==max(n))%>%
+    ungroup()%>%
+    rename(Most.kmon.zone=Rec.zone)%>%
+    dplyr::select(-n)
+  d=d%>%
+    left_join(Most.common.zone,by='CAPTVESS')%>%
+    mutate(Rec.zone=ifelse(is.na(Rec.zone),Most.kmon.zone,Rec.zone))%>%
+    mutate(Rec.zone=ifelse(is.na(Rec.zone),Rel.zone,Rec.zone))%>%
+    mutate(FINYEAR.rec=ifelse(Mn.rec>6,paste(Yr.rec,substr(Yr.rec+1,3,4),sep='-'),
+                              paste(Yr.rec-1,substr(Yr.rec,3,4),sep='-')))
+  Reporters=unique(d$CAPTVESS)
+  Reporters=subset(Reporters,!is.na(Reporters))
+  ktch=Data.monthly%>%
+    filter(SPECIES==Rep.rate.sp.ktch[match(Rep.rate.sp[i],names(Rep.rate.sp.ktch))])%>%
+    filter(LAT<=(-26) & METHOD=='GN')%>%
+    filter(FisheryCode%in%c('JASDGDL','WCDGDL'))%>%
+    filter(FINYEAR%in%unique(d$FINYEAR.rec))%>%
+    mutate(Reporter=ifelse(VESSEL%in%Reporters,'Reporter','Non.reporter'))%>%
+    group_by(Reporter,FINYEAR,zone)%>%
+    summarise(LIVEWT.c=sum(LIVEWT.c,na.rm=T))%>%
+    ungroup()%>%
+    spread(Reporter,LIVEWT.c)
+  Non.Rep.rate[[i]]=ktch%>%
+    mutate(Non.reporting=Non.reporter/(Non.reporter+Reporter))%>%
+    dplyr::select(-c(Non.reporter,Reporter))%>%
+    spread(zone,Non.reporting)
+}
+
 #Replace NA Rel_FL with average of individuals of same species caught that day
 Tagging.pop.din=Tagging.pop.din%>%
   mutate(Rel_FL=case_when(is.na(Rel_FL) & Species=='GM' & DATE_REL==as.POSIXct('1994-07-04')~110,
@@ -1604,14 +1661,14 @@ if(plot.dis)
                 dplyr::select(SPECIES,a_FL.to.TL, b_FL.to.TL),
               by=c('CAAB_code'='SPECIES'))%>%
     mutate(Rel_TL=a_FL.to.TL*Rel_FL+b_FL.to.TL)%>%
-    ggplot(aes(Age,Rel_TL,colour = Sex))+
+    ggplot(aes(Rel_TL,Age,colour = Sex))+
     geom_point()+
     facet_wrap(~Species,scales='free')+
-    geom_vline(aes(xintercept = Max.age))+
+    geom_hline(aes(yintercept = Max.age))+
     theme(legend.position = 'bottom')+
-    ylim(0,NA)+ylab('Released total length (cm)')+xlab('Calculated release age')
+    ylim(0,NA)+xlab('Released total length (cm)')+ylab('Calculated release age')
   ggsave(paste(hndl.pop.dyn.graphs,'Predicted age from von B.tiff',sep='/'),
-         width = 8,height = 6, dpi = 300,compression = "lzw")
+         width = 6,height = 6, dpi = 300,compression = "lzw")
   
   
   #Predicted age histogram
@@ -1784,7 +1841,6 @@ for(i in 1:length(Store.group.SS))
 
 
 
-
 # Export tagging data for pop dyn model------------------------------------------------------------------
 setwd(handl_OneDrive("Analyses/Data_outs"))
 NeimS=Tagging%>%filter(Species%in%Pop.din.sp)%>%distinct(Species,COMMON_NAME)
@@ -1817,6 +1873,9 @@ for(i in 1:length(Store.group.SS))
   {
     write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_SS.format_",names(a)[p],".csv")),row.names=F) 
   }
+  
+  write.csv(Non.Rep.rate[[Rep.rate.sp[match(NmS,names(Rep.rate.sp))]]],
+            paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated reporting rate.csv")),row.names=F)
 }
 
 #Population based model (movement matrix)
