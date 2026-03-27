@@ -1898,8 +1898,9 @@ for(i in 1:length(Store.group.SS))
     write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_SS.format_",names(a)[p],".csv")),row.names=F) 
   }
   
-  write.csv(Non.Rep.rate[[Rep.rate.sp[match(NmS,names(Rep.rate.sp))]]],
-            paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated_non_reporting_rate.csv")),row.names=F)
+  iix=match(NmS,names(Rep.rate.sp))
+  if(!is.na(iix)) write.csv(Non.Rep.rate[[Rep.rate.sp[iix]]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated_non_reporting_rate.csv")),row.names=F)
+  
 }
 
 #Population based model (movement matrix)
