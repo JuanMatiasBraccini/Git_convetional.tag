@@ -90,10 +90,10 @@ Data.monthly <- fread(handl_OneDrive("Analyses/Data_outs/Data.monthly.csv"))%>%
 # PARAMETERS SECTION ############
 do.paper=FALSE
 daysAtLiberty.threshold=30  #minimum time at liberty for population dynamics
+daysAtLiberty.threshold.SS=1 #minimum itme at liberty for SS model (this is control by 'mixing latency period' parameter)
 min.N.rec.Pop.modl=50       #minimum number of recaptures for a species to be considered for population dynamics
 min.daysAtLiberty=2         #minimum time at liberty for descriptive movement paper
 Selected.rel.methods_SS=c('Commercial gillnet') #only releases and recaptures from these fleets  
-#Selected.rel.methods_SS=c('Commercial gillnet','Research longline')
 
 ind.sp.vec=c(18007,18003,17001,17003) 
 names(ind.sp.vec)=c('sandbar','dusky','gummy','whiskery')
@@ -1171,10 +1171,13 @@ Tagging=Tagging%>%
 # Create tagging data for pop dyn model  -----------------------------------------------------------
 hndl.pop.dyn.graphs=handl_OneDrive("Analyses/Conventional tagging/Population dynamics")
 
-  #remove nonsense records and select minimum days at large                                                  
+  #remove nonsense records or recaptures outside WA                                                  
 Tagging.pop.din=Tagging%>%
                   filter(!is.na(Long.rels))%>%
-                  filter(!is.na(Lat.rels))
+                  filter(!is.na(Lat.rels)) %>%
+                  mutate(Outside.WA=ifelse(Long.rec>129,'YES','NO'))%>%
+                  filter(Outside.WA=='NO' | is.na(Outside.WA))%>%
+                  dplyr::select(-Outside.WA)
 
 Table.tag.type=Tagging.pop.din%>%
                 group_by(Tag.type,COMMON_NAME)%>%
@@ -1191,12 +1194,18 @@ Table.time.liberty=Tagging.pop.din%>%
                     spread(DummiE,n)
 write.csv(Table.time.liberty,paste(hndl.pop.dyn.graphs,'Table.time.liberty.csv',sep='/'),row.names = F)
 
+#select minimum days at large
 Tagging.pop.din=Tagging.pop.din%>%
-                  filter(is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold)%>%
+                  filter(is.na(DaysAtLarge)| DaysAtLarge>=daysAtLiberty.threshold.SS)%>%
                   filter(Yr.rel>=1993)
 
   #select relevant species
-Pop.din.sp=Tagging.pop.din%>%filter(Recaptured=='Yes')%>%group_by(Species)%>%tally()%>%filter(n>=min.N.rec.Pop.modl)%>%pull(Species)
+Pop.din.sp=Tagging.pop.din%>%
+              filter(Recaptured=='Yes')%>%
+              group_by(Species)%>%
+              tally()%>%
+              filter(n>=min.N.rec.Pop.modl)%>%
+              pull(Species)
 Tagging.pop.din=Tagging.pop.din%>%
                   filter(Species%in%Pop.din.sp)
 
@@ -1334,35 +1343,38 @@ SA.rels=subset(Tagging.pop.din,Long.rels>129)
 Tagging.pop.din=subset(Tagging.pop.din,Long.rels<=129)  #exclude gummy releases in SA
 Tagging.pop.din$SA.rec=with(Tagging.pop.din,ifelse(Long.rec>129,"Y","N"))
 recaptures.in.SA=unique(Tagging.pop.din%>%filter(SA.rec=='Y')%>%pull(Species))
-store.SA.recal=vector('list',length=length(recaptures.in.SA))   
-fn.interpolate.SA=function(SPeC)
+if(length(recaptures.in.SA)>0)
 {
-  a=subset(Tagging.pop.din,SA.rec=="Y"& Species==SPeC)
-  Tgs=unique(a$Tag.no)
-  n=a$DaysAtLarge
-  b=with(a,gcIntermediate(cbind(Long.rels,Lat.rels),cbind(Long.rec,Lat.rec),n=n, addStartEnd=F))
-  for(i in 1:length(Tgs))
+  store.SA.recal=vector('list',length=length(recaptures.in.SA))   
+  fn.interpolate.SA=function(SPeC)
   {
-    s=as.data.frame(b[[i]])
-    names(s)=c("Long.rec","Lat.rec")
-    s$DaysAtLarge=1:nrow(s)
-    s$Tag.no=Tgs[i]
-    s$DATE_CAPTR=subset(a,Tag.no==Tgs[i])$DATE_REL+(1:nrow(s))
-    id=which(s$Long.rec<=129)
-    s=s[id[length(id)],]
-    b[[i]]=s
+    a=subset(Tagging.pop.din,SA.rec=="Y"& Species==SPeC)
+    Tgs=unique(a$Tag.no)
+    n=a$DaysAtLarge
+    b=with(a,gcIntermediate(cbind(Long.rels,Lat.rels),cbind(Long.rec,Lat.rec),n=n, addStartEnd=F))
+    for(i in 1:length(Tgs))
+    {
+      s=as.data.frame(b[[i]])
+      names(s)=c("Long.rec","Lat.rec")
+      s$DaysAtLarge=1:nrow(s)
+      s$Tag.no=Tgs[i]
+      s$DATE_CAPTR=subset(a,Tag.no==Tgs[i])$DATE_REL+(1:nrow(s))
+      id=which(s$Long.rec<=129)
+      s=s[id[length(id)],]
+      b[[i]]=s
+    }
+    b=do.call(rbind,b)
+    return(b)
   }
-  b=do.call(rbind,b)
-  return(b)
+  for(i in 1:length(recaptures.in.SA)) store.SA.recal[[i]]=fn.interpolate.SA(recaptures.in.SA[i])
+  store.SA.recal=do.call(rbind,store.SA.recal)
+  names(store.SA.recal)[c(1:3,5)]=paste(names(store.SA.recal)[c(1:3,5)],".1",sep="")
+  Tagging.pop.din=merge(Tagging.pop.din,store.SA.recal,by="Tag.no",all.x=T)
+  Tagging.pop.din$DATE_CAPTR=with(Tagging.pop.din,ifelse(SA.rec=='Y',DATE_CAPTR.1,DATE_CAPTR))
+  Tagging.pop.din$Lat.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Lat.rec.1,Lat.rec))
+  Tagging.pop.din$Long.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Long.rec.1,Long.rec))
+  Tagging.pop.din$DaysAtLarge=with(Tagging.pop.din,ifelse(SA.rec=='Y',DaysAtLarge.1,DaysAtLarge))
 }
-for(i in 1:length(recaptures.in.SA)) store.SA.recal[[i]]=fn.interpolate.SA(recaptures.in.SA[i])
-store.SA.recal=do.call(rbind,store.SA.recal)
-names(store.SA.recal)[c(1:3,5)]=paste(names(store.SA.recal)[c(1:3,5)],".1",sep="")
-Tagging.pop.din=merge(Tagging.pop.din,store.SA.recal,by="Tag.no",all.x=T)
-Tagging.pop.din$DATE_CAPTR=with(Tagging.pop.din,ifelse(SA.rec=='Y',DATE_CAPTR.1,DATE_CAPTR))
-Tagging.pop.din$Lat.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Lat.rec.1,Lat.rec))
-Tagging.pop.din$Long.rec=with(Tagging.pop.din,ifelse(SA.rec=='Y',Long.rec.1,Long.rec))
-Tagging.pop.din$DaysAtLarge=with(Tagging.pop.din,ifelse(SA.rec=='Y',DaysAtLarge.1,DaysAtLarge))
 
   #add zone released
 Tagging.pop.din$Rel.zone=as.character(with(Tagging.pop.din,ifelse(Long.rels>=116.5 & Lat.rels<=(-26),"Zone2",
@@ -1379,11 +1391,12 @@ Tagging.pop.din$Rec.zone=as.character(with(Tagging.pop.din,ifelse(Long.rec>=116.
                       ifelse(Lat.rec>(-26) & Long.rec<114,"Closed",
                       ifelse(Lat.rec>(-26) & Long.rec>=114 & Long.rec<123.75,"North",
                       ifelse(Lat.rec>(-26) & Long.rec>=123.75,"Joint",NA))))))))
+    #set Rec zone to Rel zone if recaptured but no recapture position information
+Tagging.pop.din=Tagging.pop.din%>%
+  mutate(Rec.zone=ifelse(is.na(Rec.zone) & Recaptured=='Yes',Rel.zone,Rec.zone))
 
   #Select records for only conventional rototags recaptured by Selected.rel.methods_SS
 Tabl.rel.recs=table(Tagging.pop.din$Rec.method,Tagging.pop.din$Rel.method,useNA = 'ifany')
-
-
 plot.dis=FALSE
 if(plot.dis)
 {
@@ -1427,7 +1440,7 @@ Tagging.pop.din=Tagging.pop.din%>%
                   filter(Rel.method%in%Selected.rel.methods_SS)%>%
                   filter(!Rec.method%in%c('Commercial longline','Other' ,'Research longline'))
  
-#Calculate TDGDLF annual reporting rate by zone and species (based on McAuley et al 2007) 
+#Calculate TDGDLF annual reporting rate by zone and species (based on McAuley et al 2007)  
 Rep.rate.sp=sort(unique(Tagging.pop.din$Species))
 names(Rep.rate.sp)=c("Dusky shark","Gummy shark","Sandbar shark","Whiskery shark")
 Non.Rep.rate=vector('list',length(Rep.rate.sp))
@@ -1437,10 +1450,10 @@ names(Rep.rate.sp.ktch)=Rep.rate.sp
 Rep.rate.sp=subset(Rep.rate.sp,!Rep.rate.sp=='GM')  #no CAPTVESS info for Terry's data
 Rep.rate.sp.ktch=subset(Rep.rate.sp.ktch,!Rep.rate.sp.ktch==17001)
 Non.Rep.rate=Non.Rep.rate[-match('GM',names(Non.Rep.rate))]
-reallocate.NA.CAPTVESS=FALSE
-for(i in 1:length(Non.Rep.rate))
+Non.Rep.rate.reallocated.NA.vesl=Non.Rep.rate
+for(i in 1:length(Non.Rep.rate)) 
 {
-  d=Tagging%>%
+  d=Tagging%>% 
     filter(Species==Rep.rate.sp[i] & Recaptured=='Yes' & Lat.rels<=(-26))
   d.research.rec=Tagging%>%filter(Species==Rep.rate.sp[i] & Recaptured=='Yes' & grepl('Research',Rec.method))
   if(nrow(d.research.rec)>0) d=d%>%filter(!Tag.no%in%d.research.rec$Tag.no)
@@ -1479,25 +1492,33 @@ for(i in 1:length(Non.Rep.rate))
     filter(FisheryCode%in%c('JASDGDL','WCDGDL'))%>%
     filter(FINYEAR%in%unique(d$FINYEAR.rec))
   
-  #randomly allocate CAPTVESS if CAPTVESS is NA
-  if(reallocate.NA.CAPTVESS)
-  {
-    Vesl.pool=unique(ktch$VESSEL)
-    d$CAPTVESS[is.na(d$CAPTVESS)] <- sample(Vesl.pool, sum(is.na(d$CAPTVESS)), replace = TRUE)
-  }
-
+   #with NAs in CAPTVESS
   Reporters=unique(d$CAPTVESS)
   Reporters=subset(Reporters,!is.na(Reporters))
-  ktch=ktch%>%
-    mutate(Reporter=ifelse(VESSEL%in%Reporters,'Reporter','Non.reporter'))%>%
-    group_by(Reporter,FINYEAR,zone)%>%
-    summarise(LIVEWT.c=sum(LIVEWT.c,na.rm=T))%>%
-    ungroup()%>%
-    spread(Reporter,LIVEWT.c)
   Non.Rep.rate[[i]]=ktch%>%
-    mutate(Non.reporting=Non.reporter/(Non.reporter+Reporter))%>%
-    dplyr::select(-c(Non.reporter,Reporter))%>%
-    spread(zone,Non.reporting)
+                mutate(Reporter=ifelse(VESSEL%in%Reporters,'Reporter','Non.reporter'))%>%
+                group_by(Reporter,FINYEAR,zone)%>%
+                summarise(LIVEWT.c=sum(LIVEWT.c,na.rm=T))%>%
+                ungroup()%>%
+                spread(Reporter,LIVEWT.c)%>%
+                mutate(Non.reporting=Non.reporter/(Non.reporter+Reporter))%>%
+                dplyr::select(-c(Non.reporter,Reporter))%>%
+                spread(zone,Non.reporting)
+  
+    #randomly allocate CAPTVESS if CAPTVESS is NA  
+  Vesl.pool=unique(ktch$VESSEL)
+  d$CAPTVESS[is.na(d$CAPTVESS)] <- sample(Vesl.pool, sum(is.na(d$CAPTVESS)), replace = TRUE)
+  Reporters=unique(d$CAPTVESS)
+  Reporters=subset(Reporters,!is.na(Reporters))
+  Non.Rep.rate.reallocated.NA.vesl[[i]]=ktch%>%
+                mutate(Reporter=ifelse(VESSEL%in%Reporters,'Reporter','Non.reporter'))%>%
+                group_by(Reporter,FINYEAR,zone)%>%
+                summarise(LIVEWT.c=sum(LIVEWT.c,na.rm=T))%>%
+                ungroup()%>%
+                spread(Reporter,LIVEWT.c)%>%
+                mutate(Non.reporting=Non.reporter/(Non.reporter+Reporter))%>%
+                dplyr::select(-c(Non.reporter,Reporter))%>%
+                spread(zone,Non.reporting)
 }
 
 #Replace NA Rel_FL with average of individuals of same species caught that day
@@ -1555,16 +1576,18 @@ Tagging.pop.din=Tagging.pop.din%>%
 Tagging.pop.din=Tagging.pop.din%>%
                     dplyr::select(-c(K,Linf,to,Age.max))
 
-#Set Rec zone to Rel zone if recaptured but no recapture position information
-Tagging.pop.din=Tagging.pop.din%>%
-  mutate(Rec.zone=ifelse(is.na(Rec.zone) & Recaptured=='Yes',Rel.zone,Rec.zone))
-
 #Select only records from Selected.rel.methods_SS
 if("Research longline"%in%Selected.rel.methods_SS)  selected.zones=c('Closed','North','West','Zone1','Zone2')
 if(!"Research longline"%in%Selected.rel.methods_SS)  selected.zones=c('West','Zone1','Zone2')
 Tagging.pop.din=Tagging.pop.din%>%
-  filter(Rel.zone%in%selected.zones)
+                  filter(Rel.zone%in%selected.zones)
 
+#Select records with no NA is Age or Age.rec
+Tagging.pop.din=Tagging.pop.din%>%
+                  filter(!is.na(Age))%>%
+                  mutate(Drop=ifelse(Recaptured=='Yes' & is.na(Age.rec),'YES','NO'))%>%
+                  filter(Drop=='NO')%>%
+                  dplyr::select(-Drop)
 
 #Check data inputs to SS
 if(plot.dis)
@@ -1724,8 +1747,6 @@ if(plot.dis)
   ggsave(paste0(hndl.pop.dyn.graphs,'/Check rel months within year.tiff'),width=8,height=7, dpi=300,compression = "lzw")
   
 }
-
-
 write.csv(Tagging.pop.din%>%
             group_by(Yr.rel,COMMON_NAME,Rel.method)%>%
             tally()%>%
@@ -1807,7 +1828,7 @@ for(i in 1:length(Store.group))
 }
 
   #SS format
-fn.group.SS=function(DAT,BySex)
+fn.group.SS=function(DAT)
 {
   #Calculate financial year
   DAT=DAT%>%
@@ -1858,11 +1879,57 @@ fn.group.SS=function(DAT,BySex)
 }
 Store.group.SS=vector('list',length(Pop.din.sp))
 names(Store.group.SS)=Pop.din.sp
+Store.group.SS_DaysAtLarge=Store.group.SS
 for(i in 1:length(Store.group.SS))
 {
   Store.group.SS[[i]]=fn.group.SS(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)))
 }
 
+fn.group.SS_DaysAtLarge=function(DAT)
+{
+  #Calculate financial year
+  DAT=DAT%>%
+    mutate(finyear=ifelse(Mn.rel>6,paste(Yr.rel,substr(Yr.rel+1,3,4),sep='-'),
+                          paste(Yr.rel-1,substr(Yr.rel,3,4),sep='-')),
+           finyear=as.numeric(substr(finyear,1,4)))%>% 
+    dplyr::select(-Yr.rel)%>%
+    rename(Yr.rel=finyear)%>%
+    mutate(finyear=ifelse(Mn.rec>6,paste(Yr.rec,substr(Yr.rec+1,3,4),sep='-'),
+                          paste(Yr.rec-1,substr(Yr.rec,3,4),sep='-')),
+           finyear=as.numeric(substr(finyear,1,4)))%>% 
+    dplyr::select(-Yr.rec)%>%
+    rename(Yr.rec=finyear)
+  
+  #set unknown sex to F
+  DAT=DAT%>%
+    mutate(Number=1,
+           Sex=ifelse(Sex=="U","F",Sex),
+           Tag.group=paste(Rel.zone,Yr.rel,Sex,Age))
+  
+  #add Tag group
+  DAT=DAT%>%
+    left_join(DAT%>%
+                distinct(Tag.group)%>%
+                mutate(id = row_number()),
+              by='Tag.group')%>%
+    dplyr::select(-Tag.group)%>%
+    rename(Tag.group=id)
+  
+  #Calculate numbers released and recaptured by tag group
+  out.rec=DAT%>%
+    filter(!is.na(Yr.rec))%>%
+    group_by(Tag.group,Rec.zone,Yr.rec,DaysAtLarge)%>%
+    summarise(N.recapture=sum(Number))%>%
+    ungroup()%>%
+    mutate(season=1)%>%
+    relocate(Tag.group,Yr.rec,season,Rec.zone,N.recapture,DaysAtLarge)
+  
+  return(list(recaptures=out.rec))
+}
+for(i in 1:length(Store.group.SS))
+{
+  Store.group.SS_DaysAtLarge[[i]]=fn.group.SS_DaysAtLarge(DAT=subset(Tagging.pop.din,Species==Pop.din.sp[i] & !is.na(Rel_FL)))
+}
 
 
 # Export tagging data for pop dyn model------------------------------------------------------------------
@@ -1893,13 +1960,26 @@ for(i in 1:length(Store.group.SS))
 {
   a=Store.group.SS[[i]]
   NmS=NeimS%>%filter(Species==Pop.din.sp[i])%>%pull(COMMON_NAME)
+  
+  #export release and recapture Tag groups
   for(p in 1:length(a))
   {
     write.csv(a[[p]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_SS.format_",names(a)[p],".csv")),row.names=F) 
   }
   
+  #export days at large for the recaptures
+  write.csv(Store.group.SS_DaysAtLarge[[i]]$recaptures,paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Con_tag_Days at large.csv")),row.names=F) 
+  
+  
+  #export reporting rates
   iix=match(NmS,names(Rep.rate.sp))
-  if(!is.na(iix)) write.csv(Non.Rep.rate[[Rep.rate.sp[iix]]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated_non_reporting_rate.csv")),row.names=F)
+  if(!is.na(iix))
+  {
+    write.csv(Non.Rep.rate[[Rep.rate.sp[iix]]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated_non_reporting_rate.csv")),row.names=F)
+    write.csv(Non.Rep.rate.reallocated.NA.vesl[[Rep.rate.sp[iix]]],paste0(getwd(),'/',NmS,'/',paste0(NmS,"_","Calculated_non_reporting_rate_with.reallocated.NA.captves.csv")),row.names=F)
+    
+  }
+    
   
 }
 
