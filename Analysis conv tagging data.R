@@ -130,8 +130,8 @@ WH.growth.m=fun.get.LH(sp=17003,XX=c('male_K','male_FL_inf','LF_o','to',"a_FL.to
 LG.growth.m=fun.get.LH(sp=18023,XX=c('male_K','male_FL_inf','LF_o','to',"a_FL.to.TL","b_FL.to.TL"))
 
   #replace pars for SS estimates
-TK.growth=TK.growth%>%mutate(K=0.2,FL_inf=(170.6-b_FL.to.TL)/a_FL.to.TL)
-TK.growth.m=TK.growth.m%>%mutate(male_K=0.286,male_FL_inf=(157.8-b_FL.to.TL)/a_FL.to.TL)
+TK.growth=TK.growth%>%mutate(K=0.196,FL_inf=(170.6-b_FL.to.TL)/a_FL.to.TL)
+TK.growth.m=TK.growth.m%>%mutate(male_K=0.281,male_FL_inf=(157.8-b_FL.to.TL)/a_FL.to.TL)
 
 Growth.pars=list(TK=with(TK.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
                  BW=with(BW.growth,c(k=K, FLinf=FL_inf, Lo=LF_o ,to=to, Max_Age=Max_Age)),
@@ -1561,15 +1561,22 @@ Tagging.pop.din=Tagging.pop.din%>%
                     left_join(Gr.pars.dat.frm,by=c('Species','Sex'))
 
 Tagging.pop.din=Tagging.pop.din%>%
-                    mutate(Age=(log(-(Rel_FL-Linf)/(Linf-Lzero)))/(-K),  #to-(1/K)*log(1-(Rel_FL/Linf)),
+  mutate(DaysAtLarge=ifelse(is.na(DaysAtLarge) & !is.na(DATE_CAPTR) & (DATE_CAPTR<DATE_REL),0,
+                            DaysAtLarge))
+
+Tagging.pop.din=Tagging.pop.din%>%
+                    filter(!is.na(Rel_FL))%>%
+                    mutate(Rel_FL=ifelse(Rel_FL>Linf,Linf,Rel_FL),
+                           Age=(log(-(Rel_FL-Linf)/(Linf-Lzero)))/(-K),  #to-(1/K)*log(1-(Rel_FL/Linf)), 
                            Age=ifelse(Age=='Inf',NA,Age),
                            Age=ifelse(Age<0,0,Age),
                            Age.max=Max.age,
                            #Age.max=runif(n(),Max.age*0.8,Max.age),
                            Age=ifelse(Rel_FL>=Linf,Age.max,Age),
-                           Age.rec=ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA),
-                           Age=ifelse(Age<0,0,Age),
+                           Age.rec=ifelse(!is.na(DATE_CAPTR),Age+(DaysAtLarge/365),NA),  
+                           Age.rec=ifelse(Age.rec<0,0,Age.rec),
                            Age=ifelse(Age>Max.age,Max.age,Age),
+                           Age.rec=ifelse(Age.rec>Max.age,Max.age,Age.rec),
                            Age=round(Age),
                            Age.rec=round(Age.rec))
 
@@ -1582,7 +1589,7 @@ if(!"Research longline"%in%Selected.rel.methods_SS)  selected.zones=c('West','Zo
 Tagging.pop.din=Tagging.pop.din%>%
                   filter(Rel.zone%in%selected.zones)
 
-#Select records with no NA is Age or Age.rec
+#Select records with no NA in Age or Age.rec if recaptured
 Tagging.pop.din=Tagging.pop.din%>%
                   filter(!is.na(Age))%>%
                   mutate(Drop=ifelse(Recaptured=='Yes' & is.na(Age.rec),'YES','NO'))%>%
@@ -1754,7 +1761,7 @@ write.csv(Tagging.pop.din%>%
           paste(hndl.pop.dyn.graphs,'Table.releases by year and method.csv',sep='/'),row.names = F)
 
 
-#Create Tag groups (i.e. same released sex-age-year-zone. Use as SS3 input)  
+#Create Tag groups (i.e. same released year-zone-sex-age. Use as SS3 input)  
   #Generic format
 fn.group=function(DAT,BySex)
 {
@@ -1842,14 +1849,21 @@ fn.group.SS=function(DAT)
                 finyear=as.numeric(substr(finyear,1,4)))%>% 
         dplyr::select(-Yr.rec)%>%
         rename(Yr.rec=finyear)
-  
-  #set unknown sex to F
+
+  #set unknown sex to random sample of M or F
+  set.seed(666)
   DAT=DAT%>%
     mutate(Number=1,
-           Sex=ifelse(Sex=="U","F",Sex),
-           Tag.group=paste(Rel.zone,Yr.rel,Sex,Age))
+           Sex=ifelse(Sex=="U",sample(c("F", "M"), size = n(), replace = TRUE),Sex))
+  
+  #arrange data by tag group
+  DAT=DAT%>%
+    arrange(Yr.rel,Age,Sex,Rel.zone)
+  
   
   #add Tag group
+  DAT=DAT%>%
+    mutate(Tag.group=paste(Yr.rel,Age,Sex,Rel.zone))
   DAT=DAT%>%
         left_join(DAT%>%
                     distinct(Tag.group)%>%
@@ -1900,13 +1914,19 @@ fn.group.SS_DaysAtLarge=function(DAT)
     dplyr::select(-Yr.rec)%>%
     rename(Yr.rec=finyear)
   
-  #set unknown sex to F
+  #set unknown sex to random sample of M or F
+  set.seed(666)
   DAT=DAT%>%
     mutate(Number=1,
-           Sex=ifelse(Sex=="U","F",Sex),
-           Tag.group=paste(Rel.zone,Yr.rel,Sex,Age))
+           Sex=ifelse(Sex=="U",sample(c("F", "M"), size = n(), replace = TRUE),Sex))
+  
+  #arrange data by tag group
+  DAT=DAT%>%
+    arrange(Yr.rel,Age,Sex,Rel.zone)
   
   #add Tag group
+  DAT=DAT%>%
+    mutate(Tag.group=paste(Yr.rel,Age,Sex,Rel.zone))
   DAT=DAT%>%
     left_join(DAT%>%
                 distinct(Tag.group)%>%
