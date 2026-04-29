@@ -1168,6 +1168,47 @@ Tagging$Rec.name=-(ceiling(Tagging$Lat.rec)) * 100 +(floor(Tagging$Long.rec)-100
 Tagging=Tagging%>%
           filter(!CONDITION%in%c(0,4))     
 
+# Stuff for Brenton's sex biased dispersion -------------------------------
+do.Brenton.sex.biased=FALSE
+if(do.Brenton.sex.biased)
+{
+  library(patchwork)
+  d.san=Tagging%>%
+    filter(Species=='TK' & Recaptured=='Yes')%>%
+    mutate(Sex=ifelse(Sex=='U','F',Sex),
+           Rel_FL.bin=as.numeric(Rel_FL.bin))%>%
+    filter(Rel_FL.bin<=LH.data%>%filter(SNAME=="shark, sandbar")%>%pull(Max.FL.obs))%>%
+    mutate(dist_km = distHaversine(cbind(Long.rels, Lat.rels),cbind(Long.rec, Lat.rec))/1000,
+           dist_km.bin=100*floor(dist_km/100))
+  
+  
+  p1=d.san%>%
+    ggplot(aes(Rel_FL.bin,fill=Sex))+
+    geom_bar(position = "dodge")+
+    xlab('Released fork length (cm)')+
+    theme(legend.position = 'top',
+          legend.title=element_blank())+
+    xlim(0,NA)
+  p2=d.san%>%
+    ggplot(aes(dist_km.bin,fill=Sex))+
+    geom_bar(position = "dodge")+
+    xlab('Distance travelled (km)')+
+    theme(legend.position = 'top',
+          legend.title=element_blank())+
+    xlim(0,NA)
+  p3=d.san%>%
+    ggplot(aes(Long.rels,Lat.rels,color=Sex))+
+    geom_segment(aes(x = Long.rels, y = Lat.rels, xend = Long.rec, yend = Lat.rec), 
+                 arrow = arrow(length = unit(0.5, "cm")))+
+    xlab('Longitude (E)')+ylab('Latitude (S)')+
+    theme(legend.position = 'none')
+  
+  Comb=(p1 + p2+ plot_layout(guides = "collect")) 
+  Comb=Comb & theme(legend.position = "top") 
+  Comb/ p3 
+  ggsave(handl_OneDrive("Analyses/Conventional tagging/General movement/outputs/Brent_sex_biased_dispersal.tiff"),
+         width = 6,height = 10, dpi = 300,compression = "lzw")  
+}
 # Create tagging data for pop dyn model  -----------------------------------------------------------
 hndl.pop.dyn.graphs=handl_OneDrive("Analyses/Conventional tagging/Population dynamics")
 
